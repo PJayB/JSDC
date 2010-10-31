@@ -8,7 +8,7 @@ if ( !detect_mobile_device() && !isset($_GET['lite']) )
 }
 else
 {
-	echo "Coming Soon.";
+	include('mobile.html');
 }
 
 ?>
