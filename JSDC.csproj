@@ -49,8 +49,6 @@
     <Content Include="common\math.js" />
     <Content Include="common\math2d.js" />
     <Content Include="common\math3d.js" />
-    <Content Include="raster.html" />
-    <Content Include="common\rasterizer.js" />
     <Content Include="raycast.html" />
     <Content Include="assets\roughstone.jpg" />
     <Content Include="images\separator.png" />
