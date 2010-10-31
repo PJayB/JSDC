@@ -8,8 +8,8 @@
     <ProjectTypeGuids>{349c5851-65df-11da-9384-00065b846f21};{fae04ec0-301f-11d3-bf4b-00c04f79efbc}</ProjectTypeGuids>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Canvas</RootNamespace>
-    <AssemblyName>Canvas</AssemblyName>
+    <RootNamespace>JSDC</RootNamespace>
+    <AssemblyName>JSDC</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -31,8 +31,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Content Include="assets\guard_back.png" />
-    <Content Include="assets\keyboard.png" />
-    <Content Include="assets\keyboard_big.png" />
     <Content Include="assets\wall_dc.jpg" />
     <Content Include="game\ai.js" />
     <Content Include="common\browser.js" />
@@ -42,6 +40,8 @@
     <Content Include="assets\img_guybrush.js" />
     <Content Include="assets\img_wall.js" />
     <Content Include="game\level.js" />
+    <Content Include="images\keyboard.png" />
+    <Content Include="images\keyboard_big.png" />
     <Content Include="levelEd.html" />
     <Content Include="common\log.js" />
     <Content Include="stylesheets\MainPage.css" />
