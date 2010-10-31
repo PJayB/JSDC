@@ -1,0 +1,770 @@
+<!--
+	Copyright � Peter J. B. Lewis 2010
+	
+	www.pjblewis.com / me@pjblewis.com
+-->
+<html>
+    <head>
+        <title>Canvas Test</title>
+		<link rel="stylesheet" type="text/css" href="stylesheets/MainPage.css">
+		
+		<script type="text/javascript" src="common/browser.js"></script>
+		<script type="text/javascript" src="common/math.js"></script>
+		<script type="text/javascript" src="common/math2d.js"></script>
+		<script type="text/javascript" src="common/log.js"></script>
+		
+		<script type="text/javascript" src="game/ai.js"></script>
+		<script type="text/javascript" src="game/level.js"></script>
+		<script type="text/javascript" src="game/map.js"></script>
+		
+        <script type="text/javascript">
+		
+		var key_m = 77;
+		
+		var ceiling_fill = [0.67, 0.67, 0.7];
+		var floor_fill = [0.57, 0.6, 0.57];
+		
+		var light_dist_scale = 100;//0.5;
+		var light_scale = 0.8;//0.8;
+
+		var minimap = false;
+		var minimap_scale = 8;
+		
+		var wall_scale = 1.5;
+		
+		var fov = 65.0 / 180.0 * Math.PI;
+		
+		var fps = 30;
+		var desired_tickrate = 1000 / fps;
+		var updateTimer;
+		var frameCount = 0;
+		var depth_buffer = [];
+		
+		var gun_tex;
+		var gun_frames = 4;
+		var gun_currentFrame = 0;
+		var gun_scale = 2;
+		var gun_animating = false;
+		var gun_frameTime = 0;
+		var gun_fps = 16;
+						
+		function make_colour(r, g, b)
+		{
+			return '#' +
+				int_to_hex(r) + 
+				int_to_hex(g) +
+				int_to_hex(b);
+		}
+		
+		function random_colour()
+		{
+			return make_colour(
+						random_int(255),
+						random_int(255),
+						random_int(255));
+		}
+
+		function update_status(text)
+		{
+            var log_wnd = document.getElementById("status");
+            if ( log_wnd != null && log_wnd !== undefined )
+            {
+				log_wnd.innerHTML = text;
+			}
+		}
+		
+		function fog_factor(dist)
+		{
+			var l_dist = dist + light_dist_scale / 10;
+			return 1.0 - (1.0 / (l_dist * l_dist)) * light_dist_scale;
+		}
+		
+		function mix_shadow(distance, light)
+		{
+			var l_scale = Math.max(0, light);
+			var fog = fog_factor(distance);
+		    return Math.max(0.0, fog * light * light_scale); //0.4 + 0.6 * fog * light;
+		}
+		
+		function render_shadow(ctx, dist, scale, offsetX, offsetY, width, height)
+		{
+			var light = mix_shadow(dist, scale);
+		    var foo = ctx.globalCompositeOperation;
+		    ctx.save();
+		    ctx.globalCompositeOperation = "source-atop";
+		    ctx.globalAlpha = light;
+		    ctx.fillStyle = "#000000";
+		    ctx.fillRect(offsetX, offsetY, width, height);
+		    ctx.restore();
+		    ctx.globalCompositeOperation = foo;
+	    }
+	    
+	    var shadow_table = [];
+	    		
+		function draw_floor(viewport, ctx, viewHeight, viewDist, strip_height)
+		{
+			var halfX = viewport.width / 2;
+			var halfY = viewport.height/ 2;
+			
+			var strip_count = halfY / strip_height;
+			
+			// I could precompute all of this but WHATEVER
+			if ( shadow_table.length == 0 )
+			{
+				var v_fov = ( fov * viewport.height / viewport.width ) * 0.5;
+				
+				shadow_table[0] = 1 - mix_shadow(999.9, 1);
+				
+				// don't bother with strip zero. it's always fully 'shadowed'.
+				for ( var i = 1; i < strip_count; ++i )
+				{
+					var rayAngle = (i / strip_count) * v_fov;
+					
+					// work out the distance to the plane
+					var dist = viewHeight / Math.tan(rayAngle);
+					
+					// now work out the fog factor
+					shadow_table[i] = 1 - mix_shadow(dist, 1);
+				}
+			}
+			
+			ctx.save();
+			
+			// ceiling
+			for ( var i = 0; i < strip_count; ++i )
+			{
+				var y = i * strip_height;
+				var shadow = shadow_table[strip_count - i - 1] * 255;
+				ctx.fillStyle = make_colour(ceiling_fill[0] * shadow, ceiling_fill[1] * shadow, ceiling_fill[2] * shadow);
+				ctx.fillRect(0, y, viewport.width, halfY);
+			}
+			
+			// floor
+			for ( var i = 0; i < strip_count; ++i )
+			{
+				var y = halfY + i * strip_height;
+				var shadow = shadow_table[i] * 255;
+				ctx.fillStyle = make_colour(floor_fill[0] * shadow, floor_fill[1] * shadow, floor_fill[2] * shadow);
+				ctx.fillRect(0, y, viewport.width, halfY);
+			}
+			
+			ctx.restore();
+		}
+		
+		function invert_y(height, y)
+		{
+			return height - y - 1;
+		}
+		
+		function draw_locator_triangle(ctx, viewport, screen_x, screen_y, angle, colour)
+		{
+			ctx.save();
+				
+			ctx.translate(screen_x, invert_y(viewport.height, screen_y));
+			ctx.rotate(angle);
+			
+			ctx.fillStyle = colour;
+			ctx.strokeStyle = colour;
+			ctx.beginPath();
+			ctx.moveTo(0, -minimap_scale);
+			ctx.lineTo(-minimap_scale * 0.5, minimap_scale);
+			ctx.lineTo( minimap_scale * 0.5, minimap_scale);
+			ctx.closePath();
+			ctx.stroke();
+			
+			ctx.restore();
+		}
+		
+		function entitySort(a, b)
+		{
+			var x = vec2_sub(a.pos, player_pos);
+			var y = vec2_sub(b.pos, player_pos);
+			
+			return vec2_dot(y, y) - vec2_dot(x, x);
+		}
+		
+		function get_sprite_image_from_angle(images, dir, fwd)
+		{
+			if ( images.length == 1 ) { return images[0]; }
+			
+			var a = vec2_dot(dir, fwd);
+		
+			return a > 0 ? images[0] : images[1];
+		}
+		
+		function repaint_viewport(viewport)
+		{
+			//clear_log();
+			
+			var ctx = viewport.getContext('2d');
+			
+			var viewDist = (viewport.width / 2) / Math.tan(fov * 0.5);
+			var halfY = (viewport.height / 2);
+			var halfX = (viewport.width  / 2);
+			
+			var strip_width = 2;
+			var num_strips = viewport.width / strip_width;
+						
+			var rayOrigin = player_pos;
+						
+			var viewHeight = 1.2;
+			
+			var base_rd = ray_direction(rotation_x);
+
+			draw_floor(viewport, ctx, viewHeight, viewDist, strip_width);
+			
+			//return;
+			
+            for ( var strip_idx = 0; strip_idx < num_strips; strip_idx++ )
+			{
+				// collide against all the faces
+				
+				// generate the ray that shoots through the middle of this
+				// segment
+				var rayAngle = ((strip_idx / num_strips) - 0.5) * fov;
+				var rayDir = ray_direction(rayAngle + rotation_x);
+				
+				var results = level_castRay(rayOrigin, rayDir);
+				
+				var result_count = results.length;
+				
+				for ( var r = results.length - 1; r >= 0; --r )
+				{
+					// work out the Y offset of the poly
+					
+					var result = results[r];
+					
+					var material = materials[result.material];
+					
+					// work out the distance from the viewport
+					result.unitDist = viewDist / (result.dist * Math.cos(rayAngle));
+					result.height = 2 * result.unitDist * result.height;
+					result.offsetY = halfY - result.height + result.unitDist * viewHeight;
+					result.v = 1.0;
+					
+					// knock out/clip the previous wall?
+					if ( !( material.alpha || material == null || material === undefined ) &&
+						 r != results.length - 1 )
+					{
+						var last_result = results[r+1];
+						if ( last_result.offsetY >= result.offsetY )
+						{
+							// cool, we obscure this other wall entirely
+							results[r+1] = null;
+						}
+						else
+						{
+							// clip the height of the previous wall
+							var new_height = result.offsetY - last_result.offsetY + 1;
+							
+							// adjust texture filtering to compensate for clipping
+							last_result.v = new_height / last_result.height;
+							last_result.height = new_height;
+						}
+					}
+				}
+				
+				for ( var r = result_count - 1; r >= 0; --r )
+				{
+					var result = results[r];
+					if ( result == null )
+					{
+						// occluded
+						continue;
+					}
+					
+					var material = materials[result.material];
+					if ( material == null || material === undefined )
+					{
+						continue;
+					}
+					
+					var texture = material.name;
+				
+					var unitDist = result.unitDist;
+					var height	 = Math.floor(result.height);
+					var offsetX	 = strip_idx * strip_width;
+					var offsetY	 = Math.floor(result.offsetY);
+
+					// Set the depth
+					depth_buffer[strip_idx] = unitDist;
+					
+					if ( typeof texture == "object" )
+					{
+						var ms = (texture.width - 1) * (texture.height / texture.width);
+						var mt = (texture.height- 1);
+						var tx = Math.floor(result.u * 0.5 * ms) % ms;
+						var ty = Math.floor(result.v * mt);
+						//try
+						//{
+							ctx.drawImage(
+								texture, 
+								tx, 0,
+								0.5, ty+1,
+								offsetX, offsetY,
+								strip_width, height );
+						//}
+						//catch (e)
+						//{
+						//	log(e);
+						//}
+					}
+					else
+					{
+						ctx.fillStyle = texture;
+						ctx.fillRect(offsetX, offsetY, strip_width, height);
+					}
+					
+					// assume shading if there's no alpha
+					if ( material.shade || material.shade === undefined)
+					{
+					    render_shadow(ctx, result.dist, /*-vec2_dot(base_rd, result.normal)*/ 1, offsetX, offsetY, strip_width, height);
+					}
+				}
+			}
+			
+			var cos_fov = Math.cos(fov * 0.5); // angle each side of central viewing line
+			var cos_fov_wings = Math.cos(fov * 0.5 + Math.PI * 0.1);
+			
+			for ( var e = 0; e < entities.length; ++e )
+			{
+				var entity = entities[e];
+				var sprite = entity.sprite;
+								
+				// work out the position in screen space
+				var dx = entity.pos[0] - rayOrigin[0];
+				var dy = entity.pos[1] - rayOrigin[1];
+				
+				var len = Math.sqrt(dx * dx + dy * dy);
+				if ( len !== 0 )
+				{
+					dx /= len;
+					dy /= len;
+				}
+				
+				// Determine what image to use based on our angle to the sprite
+				//var image = get_sprite_image_from_angle(sprite.images, [-dx, -dy], entity.dir);
+				var image = get_sprite_image_from_angle(sprite.images, [-base_rd[0], -base_rd[1]], entity.dir);
+				
+				var s_width = sprite.fCount === undefined ? image.width : image.width / sprite.fCount;
+				var s_frame = entity.currentFrame === undefined ? 0 : entity.currentFrame;
+				
+				// Cull if we're behind or in the camera
+				var dot = vec2_dot(base_rd, [dx, dy]);
+				if ( dot <= cos_fov_wings) // todo: pops
+				{
+					continue;
+				}
+				
+				var screen_angle = vec2_dot([base_rd[1], -base_rd[0]], [dx, dy]);
+				
+				// Get the distance from the viewer	
+				var unitDist = viewDist / (len * dot);
+				
+				// Get the dimensions of the sprite. Find the positions in screen space.
+				var width = 2 * sprite.scale * unitDist * (s_width / image.height);
+				var height = 2 * sprite.scale * unitDist;
+				
+				var theta = Math.PI * 0.5 - Math.acos(screen_angle) + fov * 0.5;
+				var base_x = num_strips * (theta / fov);
+				
+				if ( base_x - width * 0.5 >= viewport.width ||
+					 base_x + width * 0.5 <= 0 )
+				{
+					continue;
+				}
+				
+				var offsetX = Math.floor(base_x * strip_width - width * 0.5);
+				var offsetY = halfY - height + unitDist * viewHeight;
+				
+				var base_strip = Math.floor(offsetX / strip_width);
+				var sprite_strips = Math.floor(width / strip_width);
+				
+				for ( var strip_idx = 0; strip_idx < sprite_strips; ++strip_idx )
+				{
+					var screen_strip = base_strip + strip_idx;
+					if ( screen_strip < 0 || screen_strip >= num_strips || unitDist < depth_buffer[screen_strip] )
+					{
+						continue;
+					}
+					
+					//depth_buffer[base_strip + strip_idx] = unitDist;
+					
+					var px = offsetX + strip_idx * strip_width;
+					var tx = Math.floor((strip_idx / sprite_strips) * s_width);
+						
+					ctx.drawImage(	image, 
+									tx + s_frame * s_width, 0, 
+									1, image.height, 
+									px, 
+									offsetY, 
+									strip_width, 
+									height );
+									
+					//render_shadow(ctx, len, 1.0, px, offsetY, strip_width, height);
+				}
+			}
+			
+			var results = level_castRay(rayOrigin, base_rd);
+
+			// Draw the minimap
+			if ( minimap )
+			{
+				for ( var i = 0; i < map.length; ++i )
+				{
+					var ls = map[i];
+
+					var m = materials[ls[5]];
+					if ( m == null || typeof m == "object" )
+					{
+						m = "#FFFFFF";
+					}
+					
+					var x0 = (ls[0] - rayOrigin[0]) * minimap_scale;
+					var y0 = (ls[1] - rayOrigin[1]) * minimap_scale;
+					var x1 = (ls[2] - rayOrigin[0]) * minimap_scale;
+					var y1 = (ls[3] - rayOrigin[1]) * minimap_scale;
+					
+					ctx.strokeStyle = m;
+					ctx.beginPath();
+					ctx.moveTo(halfX + x0, invert_y(viewport.height, halfY + y0));
+					ctx.lineTo(halfX + x1, invert_y(viewport.height, halfY + y1));
+					ctx.closePath();
+					ctx.stroke();
+				}
+				
+				// draw the enemies
+				for ( var i = 0; i < entities.length; ++i )
+				{
+					var e = entities[i];
+					
+					if ( !e.active ) { continue; }
+					
+					var x = (e.pos[0] - rayOrigin[0]) * minimap_scale;
+					var y = (e.pos[1] - rayOrigin[1]) * minimap_scale;
+					
+					draw_locator_triangle(ctx, viewport, halfX + x, halfY + y, vec2_toAngle(e.dir), "#FF0000");
+				}				
+				
+				// draw the player on the map
+				draw_locator_triangle(ctx, viewport, halfX, halfY, vec2_toAngle(base_rd), "#0000FF");
+			}
+			
+			// draw the gun
+			var gun_width = gun_tex.width / gun_frames;
+			var gun_x = halfX - (gun_width * gun_scale / 2);
+			var gun_y = viewport.height - gun_tex.height * gun_scale - 1;
+			var gun_u = gun_currentFrame * gun_width;
+			ctx.drawImage(
+				gun_tex, 
+				gun_u, 
+				0, 
+				gun_width, 
+				gun_tex.height, 
+				gun_x, 
+				gun_y, 
+				gun_width * gun_scale,
+				gun_tex.height * gun_scale);
+		}
+		
+		function fire_gun()
+		{
+			gun_animating = true;
+			gun_frameTime = 0;
+			
+			var v = vec2_fromAngle(rotation_x);
+			
+			var e_to_dmg = null;
+			var dist = 999;
+			var alert_dist = 20;
+			
+			// find the distance to the wall in front of us
+			var r = level_castRay(player_pos, v);
+			if ( r != null && r.length > 0 )
+			{
+				dist = r[0].dist;
+			}
+			
+			// now find any enemies closer than that			
+			for ( var i = 0; i < entities.length; ++i )
+			{
+				var e = entities[i];
+				if ( e.damage !== undefined && e.damage != null && e.active )
+				{
+					var d = vec2_sub(e.pos, player_pos);
+					var d_len = vec2_len(d);
+					if ( d_len == 0 )
+					{
+						dist = 0;
+						e_to_dmg = e;
+						break;
+					}
+					
+					if ( d_len > dist )
+					{
+						continue;
+					}
+					
+					if ( d_len < alert_dist )
+					{
+						ai_alert(e);
+					}
+					
+					d = vec2_scale(d, 1 / d_len);
+					
+					var offset = d_len * (1 - vec2_dot(d, v));
+					
+					if ( offset < 0.1 ) 
+					{
+						// the entity is within the gun's aim
+						e_to_dmg = e;
+						dist = d_len;
+					}
+				}
+			}
+			
+			if ( e_to_dmg != null )
+			{
+				e_to_dmg.damage(1);
+			}
+		}
+		
+		function hmouse_move(event, element)
+		{
+			var x = (event.clientX - element.offsetLeft);
+			var y = (event.clientY - element.offsetTop);
+			
+			//level_mouseMove(x, y, 0.1);
+		}
+		
+		function hmouse_down(event)
+		{
+		}
+		
+		function hmouse_up(event)
+		{
+		}
+		
+		function hkey_down(event)
+		{
+			if ( getKey(event) == 32 )
+			{
+				fire_gun();
+			}
+			else
+			{
+				level_keyDown(event);
+			}
+		}
+		
+		function hkey_up(event)
+		{
+			var k = getKey(event);
+
+			if ( k == key_m )
+			{
+				minimap = !minimap;
+			}
+			else
+			{
+				level_keyUp(event);
+			}
+		}
+		
+		function entity_update(dt)
+		{
+			for (var i = 0; i < entities.length; ++i )
+			{
+				var e = entities[i];
+				var s = e.sprite;
+				
+				if ( s.fCount === undefined || e.update === undefined || e.update == null )
+				{
+					continue;
+				}
+				
+				// initialize it if need be
+				if ( e.currentFrame === undefined )
+				{
+					e.currentTime = 0.0;
+					e.currentFrame = 0;
+				}
+				
+				e.update(dt);
+			}
+
+			// sort the sprites based on distance
+			entities.sort(entitySort);
+		}
+		
+		function update()
+		{
+			var dt = level_update();
+			
+			entity_update(dt);
+			
+			// update the gun animation
+			if ( gun_animating )
+			{
+				gun_frameTime += dt;
+				gun_currentFrame = Math.floor(gun_frameTime * gun_fps);
+				if ( gun_currentFrame >= gun_frames )
+				{
+					gun_animating = false;
+					gun_currentFrame = 0;
+				}
+			}
+
+            var canvas = document.getElementById('view');
+
+			repaint_viewport(canvas);
+
+			// Update the status bar
+			var status = 
+				"Frame: " + frameCount + ", Time: " + dt;
+				
+//			if ( result != null )
+//			{
+//				status += ", Dist: " + result.dist + ", " + result.material;
+//			}
+				
+			update_status(status);
+			frameCount++;
+		}
+		
+		function spawn_random_enemies(n)
+		{
+			var maxs = [-999, -999];
+			var mins = [ 999,  999];
+			
+			for ( var i = 0; i < map.length; ++i )
+			{
+				mins[0] = Math.min(map[i][0], mins[0]);
+				mins[1] = Math.min(map[i][1], mins[1]);
+				maxs[0] = Math.max(map[i][0], maxs[0]);
+				maxs[1] = Math.max(map[i][1], maxs[1]);
+				
+				mins[0] = Math.min(map[i][2], mins[0]);
+				mins[1] = Math.min(map[i][3], mins[1]);
+				maxs[0] = Math.max(map[i][2], maxs[0]);
+				maxs[1] = Math.max(map[i][3], maxs[1]);
+			}	
+			
+			maxs[0] -= mins[0];
+			maxs[1] -= mins[1];
+		
+			for ( var i = 0; i < n; ++i )
+			{
+				var p = [mins[0] + Math.random() * maxs[0], mins[1] + Math.random() * maxs[1]];
+				entities[entities.length] =
+				{
+					pos: p,
+					dir: vec2_fromAngle(Math.random() * Math.PI * 2),
+					type: "guard"
+				};
+			}
+		}
+		
+        function init()
+        {
+            log( "Hi!");
+            
+            level_init();
+            
+            //spawn_random_enemies(30);
+			
+			// Load the images
+			gun_tex = new Image();
+			gun_tex.src = 'assets/d3dhandgun.png';
+			
+			for ( key in materials )
+			{
+				var value = materials[key].name;
+				if ( value.charAt(0) != '#' )
+				{
+					materials[key].name = new Image();
+					materials[key].name.src = 'assets/' + value;
+				}
+			}
+			
+			for ( key in sprites )
+			{
+				var s = sprites[key];
+				for ( var i = 0; i < s.images.length; ++i )
+				{
+					var value = s.images[i];
+					s.images[i] = new Image();
+					s.images[i].src = 'assets/' + value;
+				}
+			}
+			
+			// scale the walls
+			for ( var i = 0; i < map.length; ++i )
+			{
+				map[i][4] *= wall_scale;
+			}
+	
+			// initialize the entities with some health
+			for ( var i = 0; i < entities.length; ++i )
+			{
+				var e = entities[i]
+				var t = entity_templates[e.type];
+				
+				e.sprite = t.sprite;
+				e.init   = t.init;
+				e.update = t.update;
+				e.damage = t.damage;
+				e.active = false;
+				
+				if ( e.init != null )
+				{
+					e.init();
+				}
+			}
+
+			updateTimer = window.setInterval("update()", desired_tickrate);
+        }
+        </script>
+    </head>
+    <body	onLoad="init()" 
+			onkeydown="hkey_down(event)" 
+			onkeyup="hkey_up(event)">
+		<div class="fixed_align">
+			<div id="content">
+				<div class="viewcontainer">
+					<canvas id="view" 
+						width="800px" 
+						height="480px" 
+						onmousedown="hmouse_down(event)" 
+						onmouseup="hmouse_up(event)"
+						onmousemove="hmouse_move(event, this)">
+					</canvas>
+				</div>
+				<div class="separator"></div>
+				<div class="navcluster">
+					<div class="leftnav">
+						<!--<div id="status"></div>-->
+						<!--<div id="log"></div>-->
+						<img src="images/keyboard.png" />
+						
+						<div class="rightnav">
+							<h3>Having Problems?</h3>
+							<a href="?lite&rsn=fail">I don't see anything / It doesn't work properly &raquo;</a><br/>
+							<a href="?lite&rsn=sick">I have motion sickness now, thanks &raquo;</a><br/>
+							<a href="?lite&rsn=boo">Take me away from this gimmicky crap &raquo;</a><br/>
+							<br />
+						</div>
+					</div>
+					<div id="copyright">
+						<div class="separator"></div>
+						Copyright &copy; 2010, Peter J. B. Lewis. 
+						Zombie and gun animation is copyright &copy; <a href="http://idsoftware.com/">id Software</a>.</div>
+					</div>
+				</div>
+				
+			</div>
+<!--        <div id="log_frame"
+			width="100%"><ul id="log"></ul></div>-->
+		</div>
+    </body>
+</html>

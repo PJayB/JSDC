@@ -1,0 +1,265 @@
+<!--
+	Copyright © Peter J. B. Lewis 2010
+	
+	www.pjblewis.com / me@pjblewis.com
+-->
+<html>
+    <head>
+        <title>Canvas Test</title>
+		<link rel="stylesheet" type="text/css" href="stylesheets/MainPage.css">
+		
+		<script type="text/javascript" src="common/browser.js"></script>
+		<script type="text/javascript" src="common/math.js"></script>
+		<script type="text/javascript" src="common/math2d.js"></script>
+		<script type="text/javascript" src="common/math3d.js"></script>
+		<script type="text/javascript" src="common/log.js"></script>
+		<script type="text/javascript" src="common/rasterizer.js"></script>
+		
+		<script type="text/javascript" src="game/ai.js"></script>
+		<script type="text/javascript" src="game/level.js"></script>
+		<script type="text/javascript" src="game/map.js"></script>
+
+	<!-- todo: palettisation -->
+		<script language="JavaScript" src="assets/img_guybrush.js"></script>
+		<script language="JavaScript" src="assets/img_wall.js"></script>
+        <script type="text/javascript">
+		
+		var fov = 65.0 / 180.0 * Math.PI;
+		
+		var fps = 30;
+		var desired_tickrate = 1000 / fps;
+		var updateTimer;
+		var frameCount = 0;
+		
+		var global_canvas;
+		var global_rasterizer;
+		var global_projection;
+		
+		var default_texture = 
+		{
+			width : 2,
+			height : 2,
+			channels : 3,
+			data : [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255]
+		};
+				
+		var materials = 
+		{	
+			"default"	: default_texture,
+			"whitewall"	: img_wall,
+			"guybrush"	: img_guybrush
+		};
+		
+		var sprites =
+		{	
+			"guybrush"	: { material : "guybrush", scale: 0.7 }
+		};
+		
+		var entities =
+		[
+			[ 5, 0, "guybrush" ]
+		];
+		
+		function make_colour(r, g, b)
+		{
+			return '#' +
+				int_to_hex(r) + 
+				int_to_hex(g) +
+				int_to_hex(b);
+		}
+		
+		function random_colour()
+		{
+			return make_colour(
+						random_int(255),
+						random_int(255),
+						random_int(255));
+		}
+
+		function update_status(text)
+		{
+            var log_wnd = document.getElementById("status");
+			log_wnd.innerHTML = text;
+		}
+		
+		function append_interpolants(p, v)
+		{
+			return p.concat(v.slice(3));
+		}
+		
+		function pixel_shader(rasterizer, x, y, z, interpolants)
+		{
+			var u = interpolants[0];
+			var v = interpolants[1];
+			
+			u %= 1; v %= 1;
+			
+			var s = tex2D(materials["whitewall"], u, v);
+			
+			s[0] *= interpolants[2];
+			s[1] *= interpolants[3];
+			s[2] *= interpolants[4];
+			s[3] *= interpolants[5];
+			
+			if (s[3] < 0.999)
+			{
+				var p = rasterizer.getPixel(x, y);
+				s[0] = lerp(p[0], s[0], s[3]);
+				s[1] = lerp(p[1], s[1], s[3]);
+				s[2] = lerp(p[2], s[2], s[3]);
+				s[3] = lerp(p[3], s[3], s[3]);
+			}
+			
+			rasterizer.fillPixel(x, y, z, s);
+		}
+								
+		function repaint_viewport(viewport, rasterizer, viewProj)
+		{
+			//clear_log();
+			
+			var ctx = viewport.getContext('2d');
+						
+			var cell_size_x = Math.floor(viewport.width / rasterizer.width);
+			var cell_size_y = Math.floor(viewport.height / rasterizer.height);
+			
+			var tri =
+			[
+				[-1, -1,-1, 0, 0, 1, 0, 0, 1],
+				[ 1,  1,-1, 1, 1, 0, 1, 0, 1],
+				[-1,  1,-1, 0, 1, 1, 1, 1, 1],
+				
+				[-1, -1,-1, 0, 0, 1, 0, 0, 1],
+				[ 1, -1,-1, 1, 0, 0, 0, 1, 1],
+				[ 1,  1,-1, 1, 1, 0, 1, 0, 1],
+
+				[-1, -1, 1, 0, 0, 1, 0, 0, 1],
+				[ 1,  1, 1, 1, 1, 0, 1, 0, 1],
+				[-1,  1, 1, 0, 1, 1, 1, 1, 1],
+				
+				[-1, -1, 1, 0, 0, 1, 0, 0, 1],
+				[ 1, -1, 1, 1, 0, 0, 0, 1, 1],
+				[ 1,  1, 1, 1, 1, 0, 1, 0, 1]
+			];
+			
+			rasterizer.clearDepth();
+			rasterizer.clearColour(0, 0, 0, 0);
+			
+			rasterizer.pixelShader = pixel_shader;
+			for ( var i = 0; i < tri.length; i += 3)
+			{
+				var p0 = mat4_vec3_mul(viewProj, tri[i+0]);
+				var p1 = mat4_vec3_mul(viewProj, tri[i+1]);
+				var p2 = mat4_vec3_mul(viewProj, tri[i+2]);
+				
+				p0 = append_interpolants(p0, tri[i+0]);
+				p1 = append_interpolants(p1, tri[i+1]);
+				p2 = append_interpolants(p2, tri[i+2]);
+				
+				rasterizer.drawTriangle(p0, p1, p2);
+			}
+			
+			for (var y = 0; y < rasterizer.height; ++y)
+			{
+				for (var x = 0; x < rasterizer.width; ++x)
+				{
+					var p = rasterizer.getPixel(x, rasterizer.height - y - 1);
+					
+					ctx.fillStyle = make_colour(p[0] * 255, p[1] * 255, p[2] * 255);
+					ctx.fillRect(x * cell_size_x, y * cell_size_y, cell_size_x, cell_size_y);
+				}
+			}			
+		}
+		
+		function hmouse_move(event, element)
+		{
+			var x = (event.clientX - element.offsetLeft);
+			var y = (event.clientY - element.offsetTop);
+			
+			level_mouseMove(x, y, 0.01);
+		}
+		
+		function hmouse_down(event)
+		{
+		}
+		
+		function hmouse_up(event)
+		{
+		}
+		
+		function hkey_down(event)
+		{
+			level_keyDown(event);
+		}
+		
+		function hkey_up(event)
+		{
+			level_keyUp(event);
+		}
+		
+		function update()
+		{
+			var dt = level_update();
+
+			var ax = rotation_x % (Math.PI * 2);
+			var ay = Math.max(Math.min(rotation_y, Math.PI*0.5), -Math.PI*0.5);
+			
+			var mat_world_0 = mat4_rotate(ax, 0, 1, 0);
+			var mat_world_1 = mat4_rotate(ay, 1, 0, 0);
+			var mat_world   = mat4_mat4_mul(mat_world_1, mat_world_0);			
+			
+			var mat_view = mat4_lookAt(0, 0, 4, 0, 0, 0, 0, 1, 0);
+			var mat_viewProj = mat4_mat4_mul(global_projection, mat4_mat4_mul(mat_view, mat_world));
+		
+ 			repaint_viewport(global_canvas, global_rasterizer, mat_viewProj);
+
+			// Update the status bar
+			var status = 
+				"Frame: " + frameCount + ", Time: " + dt;
+				
+			update_status(status);
+			frameCount++;
+		}
+		
+        function init()
+        {
+            log( "Hi!");
+			
+			var columns = 160;
+			
+            global_canvas = document.getElementById('view');
+			global_rasterizer = new Rasterizer(columns, columns * (60/80));
+			global_projection = mat4_perspective(45.0, global_rasterizer.aspect, 0.1, 1000.0);
+			
+			updateTimer = window.setInterval("update()", desired_tickrate);
+        }
+        </script>
+    </head>
+    <body	onLoad="init()" 
+			onkeydown="hkey_down(event)" 
+			onkeyup="hkey_up(event)">
+		<div id="content">
+			<div>
+			    <canvas id="view" 
+				    width="640px" 
+				    height="480px" 
+				    onmousedown="hmouse_down(event)" 
+				    onmouseup="hmouse_up(event)"
+				    onmousemove="hmouse_move(event, this)">
+			    </canvas>
+			</div>
+			<div class="separator"></div>
+			<div id="navcluster">
+				<div id="status"></div>
+				<div id="nav">
+					<span id="problems">Having Problems?</span><br/>
+					<a href="alt.php?l=fail">I don't see anything / It doesn't work properly &raquo;</a><br/>
+					<a href="alt.php?l=boo">Take me away from this gimmicky crap &raquo;</a><br/>
+				</div>
+				<div class="separator"></div>
+			</div>
+			<div id="copyright">Copyright &copy; 2010, Peter J. B. Lewis</div>
+		</div>
+<!--        <div id="log_frame"
+			width="100%"><ul id="log"></ul></div>-->
+    </body>
+</html>

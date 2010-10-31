@@ -1,0 +1,892 @@
+<!--
+	Copyright � Peter J. B. Lewis 2010
+	
+	www.pjblewis.com / me@pjblewis.com
+-->
+<html>
+    <head>
+        <title>Canvas Test</title>
+		<link rel="stylesheet" type="text/css" href="stylesheets/MainPage.css">
+		
+		<script type="text/javascript" src="common/browser.js"></script>
+		<script type="text/javascript" src="common/math.js"></script>
+		<script type="text/javascript" src="common/math2d.js"></script>
+		<script type="text/javascript" src="common/math3d.js"></script>
+		<script type="text/javascript" src="common/log.js"></script>
+		
+		<script type="text/javascript" src="game/ai.js"></script>
+		<script type="text/javascript" src="game/level.js"></script>
+		<script type="text/javascript" src="game/map.js"></script>
+		
+		<style>
+		.styleselect
+		{
+			width: 100%;
+		}
+		
+		#styles
+		{
+			float: right;
+			width: 155px;
+		}
+		</style>
+		
+        <script type="text/javascript">
+        
+        var last_pos = [];
+        var m_pos = [];
+        var currentLine = [];
+        var map_offset = [0, 0];
+        var world_mpos = [0, 0];
+        var point_from = null;
+        var selected_obj = 0;
+        var mpos_down = null;
+        
+        var segment_mode = false;
+        var entity_mode = false;
+        var moved_grid = false;
+        var moving_grid = false;
+        var placing_point = false;
+        var snap_to_grid = false;
+        var snap_to_point = true;
+        var can_place_entity = false;
+       
+        var default_zoom = 20;
+        var pixels_in_gridcell = default_zoom;
+        
+        var canvas;
+        
+		function make_html_output()
+		{
+			var output = "var map =<br/>[<br/>";
+			for ( var i = 0; i < map.length; ++i )
+			{
+				output += "&nbsp;&nbsp;[ ";
+				for ( var j = 0; j < map[i].length; ++j )
+				{
+					if ( j != 0 ) { output += ", "; }
+					
+					if ( typeof map[i][j] == "string" )
+					{
+						output += '"';
+					}
+					
+					output += map[i][j];
+					
+					if ( typeof map[i][j] == "string" )
+					{
+						output += '"';
+					}
+				}
+				output += " ],<br/>";
+			}
+			output += "];<br/><br/>";
+			
+			output += "var entities =<br/>[<br/>";
+			for ( var i = 0; i < entities.length; ++i )
+			{
+				output += "&nbsp;&nbsp;{ pos: [";
+				output += entities[i].pos[0] + ", ";
+				output += entities[i].pos[1] + "], dir: [";
+				output += entities[i].dir[0] + ", ";
+				output += entities[i].dir[1] + '], type: "';
+				output += entities[i].type + '" },<br/>';
+			}
+			output += "];<br/><br/>";
+			
+			return output;
+		}
+		
+		function popup_output()
+		{
+			var generator = window.open('', 'output_wnd', 'height=500,width=800', true);
+			
+			generator.document.write('<html><head><title>Output</title>');
+			generator.document.write('<link rel="stylesheet" href="stylesheets/MainPage.css">');
+			generator.document.write('</head><body class="code">');
+			
+			generator.document.write(make_html_output());
+			
+			generator.document.write('</body></html>');
+			generator.document.close();
+		}
+        
+		function popup_help()
+		{
+			var generator = window.open('', 'help_wnd', 'height=500,width=300', true);
+			
+			generator.document.write('<html><head><title>Output</title>');
+			generator.document.write('<link rel="stylesheet" href="stylesheets/MainPage.css">');
+			generator.document.write('</head><body>');
+			
+			generator.document.write("<h1>Controls</h1><br />");
+			generator.document.write("Ctrl: snap to grid<br />");
+			generator.document.write("Shift: don't snap to points<br />");
+			generator.document.write("LMB drag: move map<br />");
+			generator.document.write("LMB click: select/place point<br />");
+			generator.document.write("Esc: cancel placement<br />");
+			generator.document.write("Hold S: segment select mode<br />");
+			generator.document.write("Hold E: entity select mode<br />");
+			generator.document.write("Del: delete the selected segment<br />");
+			generator.document.write("O: show output window<br />");
+			generator.document.write("-/+: zoom");
+			
+			generator.document.write("<h1>General</h1>");
+			generator.document.write("<p>The currently selected segment will be highlighted in blue. Change it's "); 
+			generator.document.write("properties here and hit update. Any newly created segments will inherit ");
+			generator.document.write("from the currently selected segment's data.</p>");
+			
+			generator.document.write('</body></html>');
+			generator.document.close();
+		}
+        
+        function dump_output()
+        {
+			var output = document.getElementById('output');
+			if ( output == null || output === undefined )
+			{
+				return;
+			}
+		
+			output.innerHTML = make_html_output();	
+        }
+        
+        function cancel_point()
+        {
+        	placing_point = false;
+			point_from = null;
+			log("cancelling");
+		}
+		
+		function select_segment(seg)
+		{
+			selected_obj = seg + 1;
+			
+			var mat_box = document.getElementById('seg_mat');
+			var ht_box = document.getElementById('seg_height');
+		
+			if ( seg == -1 )
+			{
+				mat_box.value = "";
+				ht_box.value = "";
+			}
+			else
+			{
+				mat_box.value = map[seg][5];
+				ht_box.value = map[seg][4];
+			}
+		}
+		
+		function select_entity(ent)
+		{
+			selected_obj = -(ent + 1);
+			
+			var mat_box = document.getElementById('seg_mat');
+			var ht_box = document.getElementById('seg_height');
+		
+			ht_box.value = "";
+			if ( ent == -1 )
+			{
+				mat_box.value = "";
+				ht_box.value = "";
+			}
+			else
+			{
+				mat_box.value = entities[ent].type;
+				ht_box.value = vec2_toAngle(entities[ent].dir) * 180 / Math.PI;
+			}
+		}
+		
+		function update_segment()
+		{
+			var mat_box = document.getElementById('seg_mat');
+			var ht_box = document.getElementById('seg_height');
+			
+			var e_idx = -(selected_obj+1);
+			var s_idx = selected_obj-1;
+			
+			if (e_idx >= 0 && e_idx < entities.length)
+			{
+				var angle = wrap( parseFloat(ht_box.value), 0, 360 );
+				angle = angle / 180 * Math.PI;
+				
+				entities[e_idx].type = mat_box.value;
+				entities[e_idx].dir = vec2_fromAngle(angle);
+				
+				select_entity(e_idx);
+			}
+			else if (s_idx >= 0 && s_idx < map.length )
+			{			
+				map[s_idx][5] = mat_box.value;
+				map[s_idx][4] = Math.min( Math.max( parseFloat(ht_box.value), 0 ), 100 );
+			
+				select_segment(s_idx);
+			}
+			
+			dump_output();
+			repaint_viewport();
+		}
+		
+		function segment_length(seg)
+		{
+			var p0 = [seg[0], seg[1]];
+			var p1 = [seg[2], seg[3]];
+			
+			return vec2_len(vec2_sub(p1, p0));
+		}
+		
+		function new_segment(a, b)
+		{
+			var v = a.slice(0);
+			v = v.concat(b);
+			
+			if ( selected_obj > 0 && selected_obj <= map.length )
+			{
+				var seg = map[selected_obj-1];
+				
+				v = v.concat(seg.slice(4));
+				v[6] += segment_length(seg);
+			}
+			else
+			{
+				var styles = document.getElementById('wallstyle');
+				var style = "whitewall";
+				if ( styles.selectedIndex != -1 )
+				{
+					style = styles.options[styles.selectedIndex].value;
+				}
+				v = v.concat([1, style, 0]);
+			}
+			
+			map[map.length] = v;
+			
+			select_segment(map.length-1);
+			
+			dump_output();
+		}
+        
+		function new_entity(a, b)
+		{
+			var p = a.slice(0);
+			
+			var d = vec2_sub( b, p );
+			var len = vec2_len( d );
+			
+			if ( len == 0 )
+			{
+				d[0] = 0; d[1] = 1;
+			}
+			else
+			{
+				d = vec2_scale(d, 1 / len);
+			} 
+						
+			var styles = document.getElementById('entstyle');
+			var style = "guard";
+			if ( styles.selectedIndex != -1 )
+			{
+				style = styles.options[styles.selectedIndex].value;
+			}
+			
+			entities[entities.length] = { pos: p, dir: d, type: style };
+			
+			select_entity(entities.length-1);
+			
+			dump_output();
+		}
+        
+        function pixel_to_grid_space(p)
+        {
+			var x = p[0] - canvas.width / 2;
+			var y = (canvas.height - p[1] - 1) - canvas.height/ 2;
+			return [(x / pixels_in_gridcell)-map_offset[0], ((y / pixels_in_gridcell)-map_offset[1])];
+		}
+		
+		function grid_to_pixel_space(p)
+		{
+			var v = [(p[0] + map_offset[0]) * pixels_in_gridcell, (p[1] + map_offset[1]) * pixels_in_gridcell];
+			v[0] += canvas.width / 2;
+			v[1] = canvas.height - (v[1] + canvas.height/ 2) - 1;
+			return v;
+		}
+		
+		function remove_from(arr, i)
+		{
+			if ( i != -1 ) { arr.splice(i, 1); }
+		}
+		
+		function make_colour(r, g, b)
+		{
+			return '#' +
+				int_to_hex(r) + 
+				int_to_hex(g) +
+				int_to_hex(b);
+		}
+		
+		function random_colour()
+		{
+			return make_colour(
+						random_int(255),
+						random_int(255),
+						random_int(255));
+		}
+
+		function update_status(text)
+		{
+            var log_wnd = document.getElementById("info");
+			log_wnd.innerHTML = text;
+		}
+		
+		function select_grid_colour(x, o)
+		{
+			var sp = 10 * pixels_in_gridcell;
+			
+			if ( x == o ) { return "#000000"; }
+			if ( Math.floor((x - o) % sp) == 0 ) { return "#880000"; }
+			return "#333333";
+		}
+		
+		function draw_grid(ctx)
+		{
+			// where is the origin in pixel space?
+			var origin = grid_to_pixel_space([0, 0]);
+			
+			// draw the grid
+			for ( var x = origin[0] % pixels_in_gridcell; x < canvas.width; x += pixels_in_gridcell )
+			{
+				ctx.strokeStyle = select_grid_colour(x, origin[0]);
+				ctx.beginPath();
+				ctx.moveTo(x, 0);
+				ctx.lineTo(x, canvas.height);
+				ctx.closePath();
+				ctx.stroke();
+			}
+			for ( var y = origin[1] % pixels_in_gridcell; y < canvas.height; y += pixels_in_gridcell )
+			{
+				ctx.strokeStyle = select_grid_colour(y, origin[1]);
+				ctx.beginPath();
+				ctx.moveTo(0, y);
+				ctx.lineTo(canvas.width, y);
+				ctx.closePath();
+				ctx.stroke();
+			}
+					
+			ctx.strokeStyle = "#FF0000";
+			if ( origin[0] >= 0 && origin[0] < canvas.width )
+			{
+				ctx.beginPath();
+				ctx.moveTo(origin[0], 0);
+				ctx.lineTo(origin[0], canvas.height);
+				ctx.closePath();
+				ctx.stroke();
+			}
+			if ( origin[1] >= 1 && origin[1] < canvas.height )
+			{
+				ctx.beginPath();
+				ctx.moveTo(0, origin[1]);
+				ctx.lineTo(canvas.width, origin[1]);
+				ctx.closePath();
+				ctx.stroke();
+			}
+			
+			p = grid_to_pixel_space(world_mpos);
+			ctx.fillStyle = "#00FF00";
+			ctx.fillRect(p[0]-1, p[1]-1, 3, 3);
+		}
+		
+		function draw_map(ctx)
+		{
+			for (var i = 0; i < map.length; ++i )
+			{
+				if (selected_obj > 0 && i == selected_obj-1)
+				{
+					ctx.strokeStyle = "#8888FF";
+				}
+				else
+				{
+					ctx.strokeStyle = "#FFFFFF";
+				}
+				ctx.beginPath();
+				
+				var p0 = grid_to_pixel_space([map[i][0], map[i][1]]);
+				var p1 = grid_to_pixel_space([map[i][2], map[i][3]]);
+				
+				ctx.moveTo(p0[0], p0[1]);
+				ctx.lineTo(p1[0], p1[1]);
+				
+				ctx.closePath();
+				ctx.stroke();
+			}
+		}
+		
+		function draw_entity_at(ctx, wpos, wdir, colour)
+		{
+			var pp2 = pixels_in_gridcell / 2; 
+			
+			var p = grid_to_pixel_space(wpos);
+			var d = grid_to_pixel_space(vec2_add(wpos, vec2_scale(wdir, 2)));
+			
+			ctx.strokeStyle = colour;
+			ctx.fillStyle = colour;
+			ctx.beginPath();
+			ctx.moveTo(p[0], p[1]);
+			ctx.lineTo(d[0], d[1]);
+			ctx.closePath();
+			ctx.stroke();
+			ctx.fillRect(p[0] - pp2, p[1] - pp2, pixels_in_gridcell, pixels_in_gridcell);
+		}
+		
+		function draw_entities(ctx)
+		{
+			for ( var i = 0; i < entities.length; ++i )
+			{
+				var c = '#AAAAFF';
+				if ( -(i+1) == selected_obj )
+				{
+					c = '#0000FF';
+				}
+				
+				draw_entity_at(ctx, entities[i].pos, entities[i].dir, c);
+			}
+		}
+		
+		function repaint_viewport()
+		{
+			var ctx = canvas.getContext('2d');
+			
+			ctx.fillStyle = "#000000";
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+		
+			draw_grid(ctx);
+			draw_entities(ctx);
+			draw_map(ctx);
+			
+			if (entity_mode)
+			{
+				if (mpos_down != null)
+				{
+					var pos = pixel_to_grid_space(mpos_down);
+					var dir = vec2_normalize( vec2_sub( world_mpos, pos ) );
+					draw_entity_at(ctx, pos, dir, "#0000FF");
+				}
+				else
+				{
+					draw_entity_at(ctx, world_mpos, [0, 1], "#0000FF");
+				}
+			}
+			
+			if (point_from != null)
+			{
+				var p0 = grid_to_pixel_space(point_from);
+				var p1 = grid_to_pixel_space(world_mpos);
+				
+				ctx.strokeStyle = "#00FF00";
+				ctx.beginPath();
+				ctx.moveTo(p0[0], p0[1]);
+				ctx.lineTo(p1[0], p1[1]);
+				ctx.closePath();
+				ctx.stroke();
+			}
+		}
+		
+		function find_map_seg_nearest(p, dist)
+		{
+			if ( dist === undefined ) { dist = 999.9; }
+			
+			var seg = { segment: -1, point: null };
+			
+			for ( var i = 0; i < map.length; ++i )
+			{
+				p0 = [map[i][0], map[i][1]];
+				p1 = [map[i][2], map[i][3]];
+
+				var n = get_line_normal_away_from_p(p0, p1, p);
+				
+				// cast a ray
+				var st = intersect2_ray_lineseg(p, n, p0, p1);
+				if ( st[0] >= 0 && st[0] < dist && st[1] >= 0 && st[1] <= 1 )
+				{
+					dist = st[0];
+					var new_p = [p[0] + n[0] * dist, p[1] + n[1] * dist];
+					seg = { segment: i, point: new_p }
+				}
+			}
+			
+			return seg;
+		}
+		
+		function find_point_near(p, dist)
+		{
+			for ( var i = 0; i < map.length; ++i )
+			{
+				p0 = [map[i][0], map[i][1]];
+				p1 = [map[i][2], map[i][3]];
+
+				d0 = [p0[0] - p[0], p0[1] - p[1]];
+				d1 = [p1[0] - p[0], p1[1] - p[1]];
+
+				if ( vec2_dot(d0, d0) < dist*dist ) { return p0; }
+				if ( vec2_dot(d1, d1) < dist*dist ) { return p1; }
+			}
+			
+			var seg = find_map_seg_nearest(p, dist);
+			
+			if ( seg.point != null )
+			{
+				return seg.point;
+			}
+			
+			return null;
+		}
+		
+		function find_entity_near(p, dist)
+		{
+			for ( var i = 0; i < entities.length; ++i )
+			{
+				d = [entities[i].pos[0] - p[0], entities[i].pos[1] - p[1]];
+
+				if ( vec2_dot(d, d) < dist*dist )
+				{ 
+					return { index : i, pos : entities[i].pos };
+				}
+			}
+			
+			return null;
+		}
+		
+		function hmouse_move(event, element)
+		{
+			var x = (event.clientX - element.offsetLeft);
+			var y = (event.clientY - element.offsetTop);
+			
+			var dp = [x - last_pos[0], y - last_pos[1]];
+			
+			last_pos = m_pos;
+			m_pos = [x, y];
+			
+			if (moving_grid && !segment_mode && !entity_mode)
+			{
+				map_offset[0] += dp[0] / pixels_in_gridcell;
+				map_offset[1] -= dp[1] / pixels_in_gridcell;
+				moved_grid = true;
+			}
+			
+			world_mpos = pixel_to_grid_space(m_pos);
+			
+			if (snap_to_grid && !segment_mode && !entity_mode)
+			{
+				world_mpos[0] = Math.round(world_mpos[0]);
+				world_mpos[1] = Math.round(world_mpos[1]);
+			}
+			else if (!entity_mode)
+			{
+				var p = snap_to_point ? find_point_near(world_mpos, 1) : null;
+				if ( p == null )
+				{
+					world_mpos[0] = Math.round(world_mpos[0]*10) / 10;
+					world_mpos[1] = Math.round(world_mpos[1]*10) / 10;
+				}
+				else
+				{
+					world_mpos = p.slice(0);
+				}
+			}
+			else if (entity_mode)
+			{
+				var p = find_entity_near(world_mpos, 1);
+				if ( p == null )
+				{
+					world_mpos[0] = Math.round(world_mpos[0]*10) / 10;
+					world_mpos[1] = Math.round(world_mpos[1]*10) / 10;
+					can_place_entity = true;
+				}
+				else
+				{
+					world_mpos = p.pos;
+					can_place_entity = false;
+				}
+			}
+			
+			update_status("X: " + world_mpos[0] + ", Y:" + world_mpos[1]);
+			repaint_viewport();
+		}
+		
+		function hmouse_down(event)
+		{
+			var b = event.which;
+			if ( b == 1 ) 
+			{
+				mpos_down = m_pos.slice(0);
+					
+				// todo: cancel the point placement
+				if ( segment_mode || entity_mode )
+				{
+					cancel_point();
+				}
+				else
+				{
+					moving_grid = true;
+					moved_grid = false;
+				}
+			}
+		}
+		
+		function hmouse_up(event)
+		{
+			var b = event.which;
+			if ( b == 1 ) 
+			{
+				if ( segment_mode || entity_mode )
+				{
+					cancel_point();
+					moving_grid = false;
+					moved_grid = false;
+				}
+				
+				if ( segment_mode )
+				{
+					var wpos = pixel_to_grid_space(m_pos);
+				
+					var seg = find_map_seg_nearest(wpos, 1);
+					select_segment(seg == null ? -1 : seg.segment);
+					mpos_down = null;
+					return;
+				}
+				
+				if ( entity_mode )
+				{
+					var wpos = pixel_to_grid_space(m_pos);
+					var wpos_down = pixel_to_grid_space(mpos_down);
+					
+					var ent = find_entity_near(wpos, 1);
+					if ( ent == null )
+					{
+						new_entity(wpos_down, wpos);
+					}
+					else
+					{
+						select_entity(ent.index);
+					}
+					
+					mpos_down = null;
+					return;
+				}
+				
+				if (!moved_grid)
+				{
+					// If we're placing a point, drop a new point!
+					if ( placing_point && point_from != null )
+					{
+						if ( entity_mode )
+						{
+							new_entity(point_from, world_mpos);
+						}
+						else
+						{
+							new_segment(point_from, world_mpos);
+						}
+					}
+								
+					placing_point = true;
+					point_from = world_mpos.slice(0);
+					log("placing");
+				}
+				
+				moving_grid = false;
+				moved_grid = false;
+			}
+			else
+			{
+				cancel_point();
+			}
+			
+			mpos_down = null;
+		}
+		
+		function getKey(event)
+		{
+			return parseInt((event.which) ? event.which : event.keyCode);
+		}
+		
+		function zoom_in()
+		{
+			pixels_in_gridcell = Math.max( Math.min( pixels_in_gridcell * 2, 100 ), 5 );
+			repaint_viewport();
+		}
+
+		function zoom_out()
+		{
+			pixels_in_gridcell = Math.max( Math.min( pixels_in_gridcell / 2, 100 ), 5 );
+			repaint_viewport();
+		}
+		
+		function zoom_restore()
+		{
+			pixels_in_gridcell = default_zoom;
+			repaint_viewport();
+		}
+
+		function hkey_down(event)
+		{
+			log(getKey(event));
+			
+			var k = getKey(event);
+			if ( k == 17 )
+			{
+				snap_to_grid = true;
+			}
+			else if ( k == 16 )
+			{
+				snap_to_point = false;
+			}
+			else if ( k == 27 )
+			{
+				// cancel point
+				placing_point = false;
+				point_from = null;
+				log("cancelling");
+			}
+			else if ( k == key_s )
+			{
+				cancel_point();
+				segment_mode = true;
+			}
+			else if ( k == 69 )
+			{
+				cancel_point();
+				entity_mode = true;
+			}
+			else if ( k == 46 ) // del
+			{
+				// remove the segment
+				if ( selected_obj > 0 )
+				{
+					remove_from(map, selected_obj-1);
+					select_segment(-1);
+				}
+				else if (selected_obj < 0)
+				{
+					remove_from(entities, -(selected_obj+1));
+					select_entity(-1);
+				}
+				dump_output();
+				repaint_viewport();
+			}
+			else if ( k == 109 || k == 189 )
+			{
+				zoom_out();
+			}
+			else if ( k == 107 || k == 187 )
+			{
+				zoom_in();
+			}
+			else if ( k == 48 || k == 96 )
+			{
+				zoom_restore();
+			}
+			else if ( k == 79 )
+			{
+				popup_output();
+			}
+			else if ( k == 72 )
+			{
+				popup_help();
+			}
+		}
+		
+		function hkey_up(event)
+		{
+			var k = getKey(event);
+			if ( k == 17 )
+			{
+				snap_to_grid = false;
+			}
+			else if ( k == 16 )
+			{
+				snap_to_point = true;
+			}
+			else if ( k == 32 )
+			{
+				segment_mode = false;
+			}
+			else if ( k == 69 )
+			{
+				entity_mode = false;
+			}
+		}
+		
+		function fill_styles(listbox_name, styles)
+		{
+			var list = document.getElementById(listbox_name);
+			
+			list.innerHTML = "";
+			for ( m in styles )
+			{
+				list.innerHTML += '<option value="' + m + '">' + m + '</option>';
+			}
+			
+			list.selectedIndex = 0;
+		}
+		
+        function init()
+        {
+			fill_styles('wallstyle', materials);
+			fill_styles('entstyle', sprites);
+        
+			canvas = document.getElementById('view');
+			repaint_viewport();
+			dump_output();
+        }
+        </script>
+    </head>
+    <body	onLoad="init()" 
+			onkeydown="hkey_down(event)" 
+			onkeyup="hkey_up(event)">
+		<div class="centre_align">
+			<div id="content">
+				<div>
+					<canvas id="view" 
+						width="640px" 
+						height="480px" 
+						onmousedown="hmouse_down(event)" 
+						onmouseup="hmouse_up(event)"
+						onmousemove="hmouse_move(event, this)">
+					</canvas>
+					<div id="styles">
+						<div class="separator_little"></div>
+						<h3>Wall Styles</h3>
+						<select class="styleselect" id="wallstyle" size="10">
+							<option value="woo">LOL</option>
+							<option value="foo">CATS</option>
+						</select>
+						<div class="separator_little"></div>
+						<h3>Sprite Styles</h3s>
+						<select class="styleselect" id="entstyle" size="10">
+							<option value="woo">LOL</option>
+							<option value="foo">CATS</option>
+						</select>
+					</div>
+				</div>
+				<div class="separator"></div>
+				<div id="info">&nbsp;</div>
+				<div>
+					<div>
+						<p>
+							Material: <input id="seg_mat" type="text" size="12" value="" />
+							Height: <input id="seg_height" type="text" size="3" value="" />
+							<input type="submit" value="Update" onclick="update_segment()" />
+							<input type="submit" value="Output" onclick="popup_output()()" />
+						</p>
+						<p>Press H for help.</p>
+						<p>Press O for output.</p>
+					</div>
+				</div>
+				<div class="separator"></div>
+				<!--<div id="output">&nbsp;</div>
+				<div class="separator"></div>
+				<div id="log">&nbsp;</div-->
+				<div id="copyright">Copyright &copy; 2010, Peter J. B. Lewis</div>
+			</div>
+		</div>
+    </body>
+</html>
