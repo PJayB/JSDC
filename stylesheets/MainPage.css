@@ -19,13 +19,27 @@ body
 .fixed_align
 {
 	position: absolute;
-	top: 50%;	left: 50%;	width: 800px;	height: 600px;	margin-top: -300px; 	margin-left: -400px; 
+	top: 50%;
+	left: 50%;
+	width: 800px;
+	height: 600px;
+	margin-top: -300px; 
+	margin-left: -400px; 
 }
 
 .viewcontainer
 {
 	width: 100%;
 	text-align: center;
+}
+
+dth: 100%;
+	text-align: ce800px;
+}
+
+#log
+{
+	text-align: left;
 }
 
 #log

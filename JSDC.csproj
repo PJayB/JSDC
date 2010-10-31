@@ -40,10 +40,12 @@
     <Content Include="assets\img_guybrush.js" />
     <Content Include="assets\img_wall.js" />
     <Content Include="game\level.js" />
+    <Content Include="images\cakeordeath.png" />
     <Content Include="images\keyboard.png" />
     <Content Include="images\keyboard_big.png" />
     <Content Include="levelEd.html" />
     <Content Include="common\log.js" />
+    <Content Include="mobile.html" />
     <Content Include="stylesheets\MainPage.css" />
     <Content Include="game\map.js" />
     <Content Include="common\math.js" />
@@ -54,6 +56,10 @@
     <Content Include="images\separator.png" />
     <Content Include="assets\wall.jpg" />
     <Content Include="assets\wall_window.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="index.php" />
+    <None Include="mobile-detect.php" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Properties\" />

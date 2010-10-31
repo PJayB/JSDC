@@ -7,15 +7,25 @@
     <head>
         <title>JSDC</title>
 		<link rel="stylesheet" type="text/css" href="stylesheets/MainPage.css">
+		
+		<style>
+		.error
+		{
+			position: absolute;
+			top: 50%;			left: 50%;
+			width: 500px;
+			height: 100px;
+			margin-top: -50px; 
+			margin-left: -250px; 
+			text-align: center;
+		</style>
     </head>
     <body>
-		<div class="centre_align">
-			<div id="content">
-				<div class="viewcontainer">
-					<h3>Sorry.</h3>
-					This website currently does not support your mobile device.
-				</div>
-			</div>
+		<div class="error">
+			<img src="images/cakeordeath.png" />
+			<h3>Sorry.</h3>
+			<p>This website currently does not support your mobile device.</p>
+			<p>If you think it should, please <a href="mailto:forge@roaringfist.com?subject=JSDC Support for <? echo $_SERVER['HTTP_USER_AGENT']; ?>">email us</a>.</p>
 		</div>
     </body>
 </html>
