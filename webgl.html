@@ -1,0 +1,242 @@
+<!--
+	Copyright © Peter J. B. Lewis 2010
+	
+	www.pjblewis.com / me@pjblewis.com
+-->
+<html>
+    <head>
+        <title>Canvas Test</title>
+		<link rel="stylesheet" type="text/css" href="stylesheets/MainPage.css">
+		
+		<script type="text/javascript" src="common/browser.js"></script>
+		<script type="text/javascript" src="common/math.js"></script>
+		<script type="text/javascript" src="common/math2d.js"></script>
+		<script type="text/javascript" src="common/math3d.js"></script>
+		<script type="text/javascript" src="common/log.js"></script>
+		
+		<script type="text/javascript" src="game/ai.js"></script>
+		<script type="text/javascript" src="game/level.js"></script>
+		<script type="text/javascript" src="game/map.js"></script>
+
+	<!-- todo: palettisation -->
+		<script language="JavaScript" src="assets/img_guybrush.js"></script>
+		<script language="JavaScript" src="assets/img_wall.js"></script>
+        <script type="text/javascript">
+		
+		var fov = 65.0 / 180.0 * Math.PI;
+		
+		var fps = 30;
+		var desired_tickrate = 1000 / fps;
+		var updateTimer;
+		var frameCount = 0;
+		
+		var global_canvas;
+		var global_gl;
+		var global_projection;
+		var global_shader;
+
+		var global_vertProgram = "attribute vec3 position;\nuniform mat4 view;\nuniform mat4 proj;\nvoid main() {\ngl_Position = vec4(position,1.0) * view * proj;\n}";
+		var global_fragProgram = "void main() { gl_FragColor = vec4(1, 0, 0, 1); }";
+
+				
+		function make_colour(r, g, b)
+		{
+			return '#' +
+				int_to_hex(r) + 
+				int_to_hex(g) +
+				int_to_hex(b);
+		}
+		
+		function random_colour()
+		{
+			return make_colour(
+						random_int(255),
+						random_int(255),
+						random_int(255));
+		}
+
+		function update_status(text)
+		{
+            var log_wnd = document.getElementById("status");
+			log_wnd.innerHTML = text;
+		}
+		
+		function append_interpolants(p, v)
+		{
+			return p.concat(v.slice(3));
+		}
+								
+		function repaint_viewport(viewport, viewM, projM)
+		{
+			//clear_log();
+
+		    var gl = global_gl;
+
+		    gl.viewport(0, 0, viewport.width, viewport.height);
+		    
+			var tri =
+			[
+				[-1, -1,-1, 0, 0, 1, 0, 0, 1],
+				[ 1,  1,-1, 1, 1, 0, 1, 0, 1],
+				[-1,  1,-1, 0, 1, 1, 1, 1, 1],
+				
+				[-1, -1,-1, 0, 0, 1, 0, 0, 1],
+				[ 1, -1,-1, 1, 0, 0, 0, 1, 1],
+				[ 1,  1,-1, 1, 1, 0, 1, 0, 1],
+
+				[-1, -1, 1, 0, 0, 1, 0, 0, 1],
+				[ 1,  1, 1, 1, 1, 0, 1, 0, 1],
+				[-1,  1, 1, 0, 1, 1, 1, 1, 1],
+				
+				[-1, -1, 1, 0, 0, 1, 0, 0, 1],
+				[ 1, -1, 1, 1, 0, 0, 0, 1, 1],
+				[ 1,  1, 1, 1, 1, 0, 1, 0, 1]
+			];
+
+			var vb = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, vb);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tri), gl.STATIC_DRAW);
+
+			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+			
+            var p_attrib = gl.getAttribLocation(global_shader, "position")
+			gl.enableVertexAttribArray(p_attrib);
+
+			var view_u = gl.getUniformLocation(global_shader, "view");
+			var proj_u = gl.getUniformLocation(global_shader, "proj");
+
+			gl.uniformMatrix4fv(view_u, false, new Float32Array(viewM));
+			gl.uniformMatrix4fv(proj_u, false, new Float32Array(projM));
+
+			gl.vertexAttribPointer(p_attrib, 9, gl.FLOAT, false, 0, 0);
+
+			gl.drawArrays(gl.TRIANGLES, 0, 12);
+		}
+		
+		function hmouse_move(event, element)
+		{
+			var x = (event.clientX - element.offsetLeft);
+			var y = (event.clientY - element.offsetTop);
+			
+			level_mouseMove(x, y, 0.01);
+		}
+		
+		function hmouse_down(event)
+		{
+		}
+		
+		function hmouse_up(event)
+		{
+		}
+		
+		function hkey_down(event)
+		{
+			level_keyDown(event);
+		}
+		
+		function hkey_up(event)
+		{
+			level_keyUp(event);
+		}
+
+		function update()
+		{
+		    var dt = level_update();
+
+		    var ax = rotation_x % (Math.PI * 2);
+		    var ay = Math.max(Math.min(rotation_y, Math.PI * 0.5), -Math.PI * 0.5);
+
+		    var mat_world_0 = mat4_rotate(ax, 0, 1, 0);
+		    var mat_world_1 = mat4_rotate(ay, 1, 0, 0);
+		    var mat_world = mat4_mat4_mul(mat_world_1, mat_world_0);
+
+		    var mat_view = mat4_lookAt(0, 0, 4, 0, 0, 0, 0, 1, 0);
+
+		    repaint_viewport(global_canvas, mat_view, global_projection);
+
+		    // Update the status bar
+		    var status =
+				"Frame: " + frameCount + ", Time: " + dt;
+
+		    update_status(status);
+		    frameCount++;
+		}
+
+		function compile_shader(s, type)
+		{
+		    var shader = global_gl.createShader(type);
+		    global_gl.shaderSource(shader, s);
+		    global_gl.compileShader(shader);
+
+		    if (!global_gl.getShaderParameter(shader, global_gl.COMPILE_STATUS))
+		    {
+		        alert("Couldn't compile shader: " + s);
+		        return null;
+		    }
+
+		    return shader;
+		}
+		
+		function init_shaders()
+		{
+		    var fp = compile_shader(global_fragProgram, global_gl.FRAGMENT_SHADER);
+		    var vp = compile_shader(global_vertProgram, global_gl.VERTEX_SHADER);
+		    
+		    global_shader = global_gl.createProgram();
+		    global_gl.attachShader(global_shader, vp);
+		    global_gl.attachShader(global_shader, fp);
+		    global_gl.linkProgram();
+		    
+		    if ( !global_gl.getProgramParameter(global_shader, global_gl.LINK_STATUS) )
+		    {
+		        alert( "Couldn't init shaders." );
+		    }
+		       
+		    global_gl.useProgram(global_shader);
+		}
+		
+        function init()
+        {
+            log( "Hi!");
+			
+			var columns = 160;
+			
+            global_canvas = document.getElementById('view');
+			global_gl = global_canvas.getContext("experimental-webgl");
+			global_projection = mat4_perspective(45.0, global_canvas.width / global_canvas.height, 0.1, 1000.0);
+			
+			init_shaders();
+			
+			updateTimer = window.setInterval("update()", desired_tickrate);
+        }
+        </script>
+    </head>
+    <body	onLoad="init()" 
+			onkeydown="hkey_down(event)" 
+			onkeyup="hkey_up(event)">
+		<div id="content">
+			<div>
+			    <canvas id="view" 
+				    width="640px" 
+				    height="480px" 
+				    onmousedown="hmouse_down(event)" 
+				    onmouseup="hmouse_up(event)"
+				    onmousemove="hmouse_move(event, this)">
+			    </canvas>
+			</div>
+			<div class="separator"></div>
+			<div id="navcluster">
+				<div id="status"></div>
+				<div id="nav">
+					<span id="problems">Having Problems?</span><br/>
+					<a href="alt.php?l=fail">I don't see anything / It doesn't work properly &raquo;</a><br/>
+					<a href="alt.php?l=boo">Take me away from this gimmicky crap &raquo;</a><br/>
+				</div>
+				<div class="separator"></div>
+			</div>
+			<div id="copyright">Copyright &copy; 2010, Peter J. B. Lewis</div>
+		</div>
+<!--        <div id="log_frame"
+			width="100%"><ul id="log"></ul></div>-->
+    </body>
+</html>
