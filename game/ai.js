@@ -158,7 +158,8 @@ function ai_update(dt)
 		{
 			// continue doing what we're doing or fire?
 			// if we're close enough, fire our gun
-			var attack = (player_distance <= ai_attackThreshold || Math.random() < 1.0 / player_distance);
+			// oh, but give the player a bit of time to leg it, too
+			var attack = (this.stateTime > 0.5 && (player_distance <= ai_attackThreshold || Math.random() < 1.0 / player_distance));
 			if ( can_see_player && attack )
 			{
 				// switch to a new state!
@@ -193,9 +194,14 @@ function ai_switchState(e, new_state_name, next_state_name)
 		next_state_name = new_state.nextState;
 	}
 	
+	if ( new_state_name != e.state )
+	{
+		e.stateTime = 0;
+	}
+	
 	e.state = new_state_name;
 	e.nextState = next_state_name;
-	e.stateTime = 0;
+	e.stateLoopTime = 0;
 	
 	var anim_array = e.sprite.anims[new_state.anim];
 	if ( anim_array === undefined || anim_array == null || anim_array.length == 0 )
@@ -222,8 +228,9 @@ function ai_stateUpdate(e, t)
 function ai_updateCurrentState(e, dt)
 {
 	e.stateTime += dt;
+	e.stateLoopTime += dt;
 	
-	var currentFrameTime = Math.floor(e.stateTime * e.sprite.fps);
+	var currentFrameTime = Math.floor(e.stateLoopTime * e.sprite.fps);
 	
 	var anim = e.currentAnim;
 	var expired = false;
