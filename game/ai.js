@@ -1,5 +1,5 @@
 /*
-	Copyright © Peter J. B. Lewis 2010
+	Copyright ï¿½ Peter J. B. Lewis 2010
 	
 	www.pjblewis.com / me@pjblewis.com
 	
@@ -8,11 +8,26 @@
 */
 
 
+// Hurt the player on frame 2
+function ai_attackUpdate(entity, frame)
+{
+	if ( frame == 1 )
+	{
+		if ( Math.random() < 0.3 )
+		{
+			if ( player_hurt(1) )
+			{
+				ai_switchState(entity, "idle", "idle");
+			}
+		}
+	}
+}
+
 var ai_stateTable =
 {
 	"idle"	: { anim: "idle",	nextState: "idle" },
 	"hunt"	: { anim: "walk",	nextState: "hunt" },
-	"attack": { anim: "shoot",	nextState: "hunt" },
+	"attack": { anim: "shoot",	nextState: "hunt", frameUpdate: ai_attackUpdate },
 	"die"	: { anim: "die",	nextState: "dead" },
 	"dead"	: { anim: "dead",	nextState: "dead" },
 	"pain"	: { anim: "pain",	nextState: "hunt" },
@@ -106,7 +121,7 @@ function ai_update(dt)
 	var can_see_player = false;
 	
 	var player_angle = vec2_dot(this.dir, player_delta);
-	if ( player_angle > 0.4 )
+	if ( !player_isDead && player_angle > 0.4 )
 	{
 		can_see_player = true;
 	}
@@ -134,27 +149,35 @@ function ai_update(dt)
 	// if we're hunting, occasionally shoot stuff
 	if ( this.state == "hunt" )
 	{
-		// continue doing what we're doing or fire?
-		// if we're close enough, fire our gun
-		var attack = (player_distance <= ai_attackThreshold || Math.random() < 1.0 / player_distance);
-		if ( can_see_player && attack )
+		// if the player died, stop hunting
+		if ( player_isDead )
 		{
-			// switch to a new state!
-			ai_switchState(this, "attack", this.state);
+			ai_switchState(this, "idle");
 		}
-		else if (player_distance > ai_attackThreshold)
+		else
 		{
-			// move towards the player
-			var movement = [player_delta[0] * ai_moveSpeed * dt,
-							player_delta[1] * ai_moveSpeed * dt];
-							
-			level_clipMovement(this.pos, movement, player_radius);
+			// continue doing what we're doing or fire?
+			// if we're close enough, fire our gun
+			var attack = (player_distance <= ai_attackThreshold || Math.random() < 1.0 / player_distance);
+			if ( can_see_player && attack )
+			{
+				// switch to a new state!
+				ai_switchState(this, "attack", this.state);
+			}
+			else if (player_distance > ai_attackThreshold)
+			{
+				// move towards the player
+				var movement = [player_delta[0] * ai_moveSpeed * dt,
+								player_delta[1] * ai_moveSpeed * dt];
+								
+				level_clipMovement(this.pos, movement, player_radius);
+				
+				this.pos[0] += movement[0];
+				this.pos[1] += movement[1];
+			}
 			
-			this.pos[0] += movement[0];
-			this.pos[1] += movement[1];
+			this.dir = player_delta;
 		}
-		
-		this.dir = player_delta;
 	}
 
 	// if we're done with our current state, switch back to an old state or loop?
@@ -186,6 +209,16 @@ function ai_switchState(e, new_state_name, next_state_name)
 	}
 }
 
+function ai_stateUpdate(e, t)
+{
+	var state = ai_stateTable[e.state];
+	
+	if ( state.frameUpdate !== undefined && state.frameUpdate != null )
+	{
+		state.frameUpdate(e, t);
+	}
+}
+
 function ai_updateCurrentState(e, dt)
 {
 	e.stateTime += dt;
@@ -207,5 +240,10 @@ function ai_updateCurrentState(e, dt)
 	else
 	{
 		e.currentFrame = anim[currentFrameTime];
+		if ( e.prevFrame != e.currentFrame )
+		{
+			ai_stateUpdate(e, currentFrameTime);
+		}
+		e.prevFrame = e.currentFrame;
 	}
 }

@@ -13,12 +13,15 @@
 		<script type="text/javascript" src="common/math2d.js"></script>
 		<script type="text/javascript" src="common/log.js"></script>
 		
+		<script type="text/javascript" src="game/player.js"></script>
 		<script type="text/javascript" src="game/ai.js"></script>
 		<script type="text/javascript" src="game/level.js"></script>
 		<script type="text/javascript" src="game/map.js"></script>
 		
         <script type="text/javascript">
 		
+		var lastTime = null;
+
 		var key_m = 77;
 		
 		var ceiling_fill = [0.67, 0.67, 0.7];
@@ -47,7 +50,7 @@
 		var gun_animating = false;
 		var gun_frameTime = 0;
 		var gun_fps = 16;
-						
+		
 		function make_colour(r, g, b)
 		{
 			return '#' +
@@ -207,7 +210,7 @@
 						
 			var rayOrigin = player_pos;
 						
-			var viewHeight = 1.2;
+			var viewHeight = player_viewHeight;
 			
 			var base_rd = ray_direction(rotation_x);
 
@@ -450,21 +453,46 @@
 				draw_locator_triangle(ctx, viewport, halfX, halfY, vec2_toAngle(base_rd), "#0000FF");
 			}
 			
-			// draw the gun
-			var gun_width = gun_tex.width / gun_frames;
-			var gun_x = halfX - (gun_width * gun_scale / 2);
-			var gun_y = viewport.height - gun_tex.height * gun_scale - 1;
-			var gun_u = gun_currentFrame * gun_width;
-			ctx.drawImage(
-				gun_tex, 
-				gun_u, 
-				0, 
-				gun_width, 
-				gun_tex.height, 
-				gun_x, 
-				gun_y, 
-				gun_width * gun_scale,
-				gun_tex.height * gun_scale);
+			if ( !player_isDead )
+			{
+				// draw the gun
+				var gun_width = gun_tex.width / gun_frames;
+				var gun_x = halfX - (gun_width * gun_scale / 2);
+				var gun_y = viewport.height - gun_tex.height * gun_scale - 1;
+				var gun_u = gun_currentFrame * gun_width;
+				ctx.drawImage(
+					gun_tex, 
+					gun_u, 
+					0, 
+					gun_width, 
+					gun_tex.height, 
+					gun_x, 
+					gun_y, 
+					gun_width * gun_scale,
+					gun_tex.height * gun_scale);
+			}
+			
+			// draw player health
+			var health_size = 10;
+			var health_hsize = health_size / 2;
+			var health_x = 25 + health_size;
+			var health_y = viewport.height - health_size - 10;
+			
+			for ( var i = 0; i < player_health; ++i )
+			{
+				ctx.fillStyle = "#FF0000";
+				ctx.fillRect(health_x - health_size, health_y - health_hsize, health_size * 2, health_hsize * 2);
+				ctx.fillRect(health_x - health_hsize, health_y - health_size, health_hsize * 2, health_size * 2);
+				health_x += health_size * 2 + 5;
+			}
+
+			for ( var i = player_health; i < player_startHealth; ++i )
+			{
+				ctx.fillStyle = "#440000";
+				ctx.fillRect(health_x - health_size, health_y - health_hsize, health_size * 2, health_hsize * 2);
+				ctx.fillRect(health_x - health_hsize, health_y - health_size, health_hsize * 2, health_size * 2);
+				health_x += health_size * 2 + 5;
+			}
 		}
 		
 		function fire_gun()
@@ -534,7 +562,7 @@
 			var x = (event.clientX - element.offsetLeft);
 			var y = (event.clientY - element.offsetTop);
 			
-			//level_mouseMove(x, y, 0.1);
+			//player_mouseMove(x, y, 0.1);
 		}
 		
 		function hmouse_down(event)
@@ -553,7 +581,7 @@
 			}
 			else
 			{
-				level_keyDown(event);
+				player_keyDown(event);
 			}
 		}
 		
@@ -567,7 +595,7 @@
 			}
 			else
 			{
-				level_keyUp(event);
+				player_keyUp(event);
 			}
 		}
 		
@@ -599,8 +627,14 @@
 		
 		function update()
 		{
-			var dt = level_update();
+			var now = new Date().getTime();
 			
+			//var dt = 1 / 30.0;
+			var dt = Math.min((now - lastTime) / 1000, 1);
+			
+			lastTime = now;
+	
+			player_update(dt);
 			entity_update(dt);
 			
 			// update the gun animation
@@ -669,7 +703,10 @@
         {
             log( "Hi!");
             
+			lastTime = new Date().getTime();
+	
             level_init();
+			player_init();
             
             //spawn_random_enemies(30);
 			
