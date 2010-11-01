@@ -472,6 +472,16 @@
 					gun_tex.height * gun_scale);
 			}
 			
+			// flash screen 
+			if ( player_damageFade > 0 )
+			{
+				ctx.save();
+				ctx.globalAlpha = 0.3 * player_damageFade;
+				ctx.fillStyle = "#FF0000";
+				ctx.fillRect(0, 0, viewport.width, viewport.height);
+				ctx.restore();
+			}
+			
 			// draw player health
 			var health_size = 10;
 			var health_hsize = health_size / 2;

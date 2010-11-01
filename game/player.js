@@ -37,6 +37,8 @@ var player_viewHeight = 1.2;
 var player_deadHeight = 0.2;
 var player_isDead = false;
 
+var player_damageFade = 0;
+
 function player_init()
 {
 	player_health = player_startHealth;
@@ -48,6 +50,8 @@ function player_init()
 function player_hurt(dmg)
 {
 	player_health -= dmg;
+	
+	player_damageFade = Math.min( 1.0, player_damageFade + dmg );
 	
 	if ( player_health <= 0 )
 	{
@@ -99,6 +103,8 @@ function player_update(dt)
 	// if dead, don't move
 	if ( player_isDead )
 	{
+		player_damageFade = 1.0;
+		
 		// drop down to our deadheight
 		player_viewHeight = Math.max(player_deadHeight, player_viewHeight - dt * 2);
 		
@@ -108,6 +114,8 @@ function player_update(dt)
 		return;
 	}
 
+	player_damageFade = Math.max(0.0, player_damageFade - dt * 4);
+	
 	var movement = [0,0];
 	
 	var ms = 7.5;
