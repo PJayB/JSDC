@@ -9,13 +9,13 @@
 
 var materials = 
 {	
-	"whitewall"	: { name : "wall_dc.jpg",		},
-	"red"		: { name : "#FF0000",			},
-	"green"		: { name : "#00FF00",			},
-	"blue"		: { name : "#0000FF",			},
-	"white"		: { name : "#FFFFFF",			},
+	"whitewall"	: { name : "wall_dc.jpg"		},
+	"red"		: { name : "#FF0000"			},
+	"green"		: { name : "#00FF00"			},
+	"blue"		: { name : "#0000FF"			},
+	"white"		: { name : "#FFFFFF"			},
 	"window"	: { name : "wall_window.png",	alpha : true, shade : true },
-	"roughstone": { name : "roughstone.jpg",	},
+	"roughstone": { name : "roughstone.jpg"	    }
 };
 
 var sprites =
@@ -35,7 +35,7 @@ var sprites =
 			"dead" : [[10]],
 			"pain" : [[5], [9]]
 		}
-	},
+	}
 };		
 
 function static_update(dt)

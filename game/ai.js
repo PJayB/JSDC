@@ -30,7 +30,7 @@ var ai_stateTable =
 	"attack": { anim: "shoot",	nextState: "hunt", frameUpdate: ai_attackUpdate },
 	"die"	: { anim: "die",	nextState: "dead" },
 	"dead"	: { anim: "dead",	nextState: "dead" },
-	"pain"	: { anim: "pain",	nextState: "hunt" },
+	"pain"	: { anim: "pain",	nextState: "hunt" }
 };
 
 var ai_moveSpeed = 6;
