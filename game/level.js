@@ -35,6 +35,13 @@ var sprites =
 			"dead" : [[10]],
 			"pain" : [[5], [9]]
 		}
+	},
+	"healthpack" :
+	{
+	    images : ["healthpack.png"],
+	    scale  : 0.2,
+	    fCount : 2,
+	    fps    : 2
 	}
 };		
 
@@ -46,8 +53,9 @@ function static_update(dt)
 		
 var entity_templates =
 {
-//	"guard"		: { sprite : sprites["guard"],	   init : null,	update : static_update,		damage: null }		
-	"guard"		: { sprite : sprites["guard"],	   init : ai_init,	update : ai_update,		damage: ai_takeDamage }		
+//	"guard"		: { sprite : sprites["guard"],	   init : null,	    update : static_update,		damage: null }		
+	"guard"		: { sprite : sprites["guard"],	   init : ai_init,	update : ai_update,		    damage: ai_takeDamage },		
+	"healthpack": { sprite : sprites["healthpack"],init : null,	    update : static_update,	    damage: null }		
 };
 
 function ray_direction(rayTheta)
