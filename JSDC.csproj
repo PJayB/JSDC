@@ -2,7 +2,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.30729</ProductVersion>
+    <ProductVersion>9.0.21022</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{FCAA4449-CEE1-41FD-A572-AD4281CBA89C}</ProjectGuid>
     <ProjectTypeGuids>{349c5851-65df-11da-9384-00065b846f21};{fae04ec0-301f-11d3-bf4b-00c04f79efbc}</ProjectTypeGuids>
@@ -39,7 +39,11 @@
     <Content Include="assets\guard.png" />
     <Content Include="assets\img_guybrush.js" />
     <Content Include="assets\img_wall.js" />
+    <Content Include="game\controls.js" />
+    <Content Include="game\entity.js" />
     <Content Include="game\level.js" />
+    <Content Include="game\pickups.js" />
+    <Content Include="game\player.js" />
     <Content Include="images\cakeordeath.png" />
     <Content Include="images\keyboard.png" />
     <Content Include="images\keyboard_big.png" />
@@ -85,9 +89,6 @@
           <IISUrl>
           </IISUrl>
           <NTLMAuthentication>False</NTLMAuthentication>
-          <UseCustomServer>False</UseCustomServer>
-          <CustomServerUrl>
-          </CustomServerUrl>
           <SaveServerSettingsInUserFile>False</SaveServerSettingsInUserFile>
         </WebProjectProperties>
       </FlavorProperties>

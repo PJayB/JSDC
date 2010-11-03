@@ -13,9 +13,12 @@
 		<script type="text/javascript" src="common/math2d.js"></script>
 		<script type="text/javascript" src="common/log.js"></script>
 		
+		<script type="text/javascript" src="game/entity.js"></script>
 		<script type="text/javascript" src="game/player.js"></script>
 		<script type="text/javascript" src="game/ai.js"></script>
+		<script type="text/javascript" src="game/pickups.js"></script>
 		<script type="text/javascript" src="game/level.js"></script>
+		<script type="text/javascript" src="game/controls.js"></script>
 		<script type="text/javascript" src="game/map.js"></script>
 		
         <script type="text/javascript">
@@ -50,6 +53,8 @@
 		var gun_animating = false;
 		var gun_frameTime = 0;
 		var gun_fps = 16;
+		
+		var local_player = null;
 		
 		function make_colour(r, g, b)
 		{
@@ -180,8 +185,8 @@
 		
 		function entitySort(a, b)
 		{
-			var x = vec2_sub(a.pos, player_pos);
-			var y = vec2_sub(b.pos, player_pos);
+			var x = vec2_sub(a.pos, local_player.pos);
+			var y = vec2_sub(b.pos, local_player.pos);
 			
 			return vec2_dot(y, y) - vec2_dot(x, x);
 		}
@@ -208,9 +213,9 @@
 			var strip_width = 2;
 			var num_strips = viewport.width / strip_width;
 						
-			var rayOrigin = player_pos;
+			var rayOrigin = local_player.pos;
 						
-			var viewHeight = player_viewHeight;
+			var viewHeight = local_player.viewHeight;
 			
 			var base_rd = ray_direction(rotation_x);
 
@@ -333,6 +338,8 @@
 			{
 				var entity = entities[e];
 				var sprite = entity.sprite;
+				
+				if ( !entity.visible ) { continue; }
 								
 				// work out the position in screen space
 				var dx = entity.pos[0] - rayOrigin[0];
@@ -441,7 +448,7 @@
 				{
 					var e = entities[i];
 					
-					if ( !e.active ) { continue; }
+					if ( !e.active || !e.visible ) { continue; }
 					
 					var x = (e.pos[0] - rayOrigin[0]) * minimap_scale;
 					var y = (e.pos[1] - rayOrigin[1]) * minimap_scale;
@@ -453,7 +460,7 @@
 				draw_locator_triangle(ctx, viewport, halfX, halfY, vec2_toAngle(base_rd), "#0000FF");
 			}
 			
-			if ( !player_isDead )
+			if ( !local_player.isDead )
 			{
 				// draw the gun
 				var gun_width = gun_tex.width / gun_frames;
@@ -473,11 +480,19 @@
 			}
 			
 			// flash screen 
-			if ( player_damageFade > 0 )
+			if ( local_player.damageFade > 0 )
 			{
 				ctx.save();
-				ctx.globalAlpha = 0.3 * player_damageFade;
+				ctx.globalAlpha = 0.3 * local_player.damageFade;
 				ctx.fillStyle = "#FF0000";
+				ctx.fillRect(0, 0, viewport.width, viewport.height);
+				ctx.restore();
+			}
+			if ( local_player.healFade > 0 )
+			{
+				ctx.save();
+				ctx.globalAlpha = 0.3 * local_player.healFade;
+				ctx.fillStyle = "#CCCCFF";
 				ctx.fillRect(0, 0, viewport.width, viewport.height);
 				ctx.restore();
 			}
@@ -488,7 +503,7 @@
 			var health_x = 25 + health_size;
 			var health_y = viewport.height - health_size - 10;
 			
-			for ( var i = 0; i < player_health; ++i )
+			for ( var i = 0; i < local_player.health; ++i )
 			{
 				ctx.fillStyle = "#FF0000";
 				ctx.fillRect(health_x - health_size, health_y - health_hsize, health_size * 2, health_hsize * 2);
@@ -496,7 +511,7 @@
 				health_x += health_size * 2 + 5;
 			}
 
-			for ( var i = player_health; i < player_startHealth; ++i )
+			for ( var i = local_player.health; i < player_startHealth; ++i )
 			{
 				ctx.fillStyle = "#440000";
 				ctx.fillRect(health_x - health_size, health_y - health_hsize, health_size * 2, health_hsize * 2);
@@ -507,64 +522,15 @@
 		
 		function fire_gun()
 		{
+			if ( local_player.isDead || !local_player.active )
+			{
+				return;
+			}
+		
 			gun_animating = true;
 			gun_frameTime = 0;
 			
-			var v = vec2_fromAngle(rotation_x);
-			
-			var e_to_dmg = null;
-			var dist = 999;
-			var alert_dist = 20;
-			
-			// find the distance to the wall in front of us
-			var r = level_castRay(player_pos, v);
-			if ( r != null && r.length > 0 )
-			{
-				dist = r[0].dist;
-			}
-			
-			// now find any enemies closer than that			
-			for ( var i = 0; i < entities.length; ++i )
-			{
-				var e = entities[i];
-				if ( e.damage !== undefined && e.damage != null && e.active )
-				{
-					var d = vec2_sub(e.pos, player_pos);
-					var d_len = vec2_len(d);
-					if ( d_len == 0 )
-					{
-						dist = 0;
-						e_to_dmg = e;
-						break;
-					}
-					
-					if ( d_len > dist )
-					{
-						continue;
-					}
-					
-					if ( d_len < alert_dist )
-					{
-						ai_alert(e);
-					}
-					
-					d = vec2_scale(d, 1 / d_len);
-					
-					var offset = d_len * (1 - vec2_dot(d, v));
-					
-					if ( offset < 0.1 ) 
-					{
-						// the entity is within the gun's aim
-						e_to_dmg = e;
-						dist = d_len;
-					}
-				}
-			}
-			
-			if ( e_to_dmg != null )
-			{
-				e_to_dmg.damage(1);
-			}
+			entity_attack(local_player, 1, 50);
 		}
 		
 		function hmouse_move(event, element)
@@ -572,7 +538,7 @@
 			var x = (event.clientX - element.offsetLeft);
 			var y = (event.clientY - element.offsetTop);
 			
-			//player_mouseMove(x, y, 0.1);
+			//controls_mouseMove(x, y, 0.1);
 		}
 		
 		function hmouse_down(event)
@@ -591,7 +557,7 @@
 			}
 			else
 			{
-				player_keyDown(event);
+				controls_keyDown(event);
 			}
 		}
 		
@@ -605,11 +571,11 @@
 			}
 			else
 			{
-				player_keyUp(event);
+				controls_keyUp(event);
 			}
 		}
 		
-		function entity_update(dt)
+		function update_entities(dt)
 		{
 			for (var i = 0; i < entities.length; ++i )
 			{
@@ -644,8 +610,12 @@
 			
 			lastTime = now;
 	
-			player_update(dt);
-			entity_update(dt);
+			if ( local_player.active )
+			{
+				controls_update(dt, local_player);
+			}
+			
+			update_entities(dt);
 			
 			// update the gun animation
 			if ( gun_animating )
@@ -716,7 +686,14 @@
 			lastTime = new Date().getTime();
 	
             level_init();
-			player_init();
+            
+            // Spawn the player
+            local_player = entities[entities.length] = 
+            {
+				pos: [0,0],
+				dir: [0,1],
+				type: "player"
+            };
             
             //spawn_random_enemies(30);
 			
@@ -756,16 +733,10 @@
 			{
 				var e = entities[i]
 				var t = entity_templates[e.type];
-				
-				e.sprite = t.sprite;
-				e.init   = t.init;
-				e.update = t.update;
-				e.damage = t.damage;
-				e.active = false;
-				
-				if ( e.init != null )
+
+				if ( e !== undefined && t !== undefined )
 				{
-					e.init();
+					entity_create(e, t);
 				}
 			}
 

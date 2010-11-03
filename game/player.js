@@ -7,33 +7,9 @@
 	Thanks.
 */
 
-var key_w = 87;
-var key_a = 65;
-var key_s = 83;
-var key_d = 68;
-var key_up = 38;
-var key_left = 37;
-var key_down = 40;
-var key_right = 39;
-
-var last_x = 0;
-var last_y = 0;
-var mouse_x = 0;
-var mouse_y = 0;
-var rotation_x = 0;
-var rotation_y = 0;
-
-var movement_keys = [];
-
-var player_localPos = [0,0];
-var player_pos = [0,0];
-var player_radius = 0.5;
-
 var player_startHealth = 10;
-var player_health = player_startHealth;
-var player_prevHealth = player_health;
 
-var player_viewHeight = 1.2;
+var player_defaultHeight = 1.2;
 var player_deadHeight = 0.2;
 var player_isDead = false;
 
@@ -41,116 +17,74 @@ var player_damageFade = 0;
 
 function player_init()
 {
-	player_health = player_startHealth;
-	player_prevHealth = player_health;
-	player_viewHeight = 1.2;
-	player_isDead = false;
+	this.startHealth = player_startHealth;
+	this.health = this.startHealth;
+	this.prevHealth = this.startHealth;
+	this.viewHeight = player_defaultHeight;
+	this.isDead = false;
+	this.active = true;
+	this.isPlayer = true;
+	this.damageFade = 0;
+	this.healFade = 0;
 }
 
-function player_hurt(dmg)
+function player_takeDamage(from, dmg)
 {
-	player_health -= dmg;
+	this.health -= dmg;
 	
-	player_damageFade = Math.min( 1.0, player_damageFade + dmg );
-	
-	if ( player_health <= 0 )
+	if ( dmg > 0 )
 	{
-		player_isDead = true;
+		this.damageFade = Math.min( 1.0, this.damageFade + dmg );
+	}
+	else
+	{
+		this.healFade = Math.min( 1.0, this.healFade - dmg );
+	}
+	
+	if ( this.health <= 0 )
+	{
+		this.isDead = true;
 		// scream?
 		//player_die();
+		
+		entity_die(this);
 	}
 	
-	return player_isDead;
+	return this.isDead;
 }
 
-function player_mouseMove(_mouse_x, _mouse_y, sensitivity)
+function player_touch(other)
 {
-	mouse_x = _mouse_x;
-	mouse_y = _mouse_y;
-	
-	var delta_x = (mouse_x - last_x);
-	var delta_y = (mouse_y - last_y);
-	
-	if ( delta_x < 100 && delta_y < 100 )
-	{
-		rotation_x += delta_x * sensitivity;
-		rotation_y += delta_y * sensitivity;
-	}
-	
-	last_x = mouse_x;
-	last_y = mouse_y;
-}
-
-function getKey(event)
-{
-	return parseInt((event.which) ? event.which : event.keyCode);
-}
-
-function player_keyDown(event)
-{
-	movement_keys[getKey(event)] = true;
-}
-
-function player_keyUp(event)
-{
-	movement_keys[getKey(event)] = false;
+	return true;
 }
 
 function player_update(dt)
 {
-	player_prevHealth = player_health;
+	this.prevHealth = this.health;
 	
 	// if dead, don't move
-	if ( player_isDead )
+	if ( this.isDead )
 	{
-		player_damageFade = 1.0;
+		this.damageFade = 1.0;
 		
 		// drop down to our deadheight
-		player_viewHeight = Math.max(player_deadHeight, player_viewHeight - dt * 2);
+		this.viewHeight = Math.max(player_deadHeight, this.viewHeight - dt * 2);
 		
 		// look at our killer
 		
 	
+		entity_update(this, dt);
+	
 		return;
 	}
 
-	player_damageFade = Math.max(0.0, player_damageFade - dt * 4);
+	this.damageFade = Math.max(0.0, this.damageFade - dt * 4);
+	this.healFade = Math.max(0.0, this.healFade - dt * 4);
 	
-	var movement = [0,0];
-	
-	var ms = 7.5;
-	var rs = 2.0;
-	
-	var forward = ray_direction(rotation_x);
-	var right   = ray_direction(rotation_x + Math.PI * 0.5);
-	
-	if ( movement_keys[key_w] || movement_keys[key_up]) 
-	{ 
-		movement[0] += forward[0]; movement[1] += forward[1]; 
-	}
-	if ( movement_keys[key_s] || movement_keys[key_down] ) 
-	{ 
-		movement[0] -= forward[0]; movement[1] -= forward[1]; 
-	}
-
-	if ( movement_keys[key_a] ) { movement[0] -= right[0]; movement[1] -= right[1]; }
-	if ( movement_keys[key_d] ) { movement[0] += right[0]; movement[1] += right[1]; }
-	if ( movement_keys[key_left] ) { rotation_x -= dt * rs; }
-	if ( movement_keys[key_right] ) { rotation_x += dt * rs; }
-	
-	if ( movement[0] != 0 && movement[1] != 0 )
+	if ( this.health > this.startHealth )
 	{
-		d = Math.sqrt( movement[0] * movement[0] + movement[1] * movement[1] );
-		movement[0] /= d;
-		movement[1] /= d;
+		this.health = Math.min( this.startHealth, this.health - dt );
 	}
 	
-	movement[0] *= ms * dt;
-	movement[1] *= ms * dt;
-	
-	level_clipMovement(player_pos, movement, player_radius);
-
-	player_pos[0] += movement[0]; player_pos[1] += movement[1];
-	player_localPos[0] += vec2_dot(right,   movement);
-	player_localPos[1] += vec2_dot(forward, movement);
+	entity_update(this, dt);
 }

@@ -20,6 +20,22 @@ var materials =
 
 var sprites =
 {	
+	"player" :
+	{
+		images : ["guard.png", "guard_back.png"],
+		scale : 0.85,
+		fCount: 13,
+		fps   : 4,
+		anims :
+		{
+			"idle" : [[0]],
+			"walk" : [[1,2,3,4]],
+			"shoot": [[11,12]],
+			"die"  : [[5,6,7,8]],
+			"dead" : [[10]],
+			"pain" : [[5], [9]]
+		}
+	},
 	"guard" :
 	{
 		images : ["guard.png", "guard_back.png"],
@@ -53,9 +69,10 @@ function static_update(dt)
 		
 var entity_templates =
 {
-//	"guard"		: { sprite : sprites["guard"],	   init : null,	    update : static_update,		damage: null }		
-	"guard"		: { sprite : sprites["guard"],	   init : ai_init,	update : ai_update,		    damage: ai_takeDamage },		
-	"healthpack": { sprite : sprites["healthpack"],init : null,	    update : static_update,	    damage: null }		
+//	"guard"		: { sprite : sprites["guard"],		radius: 1,		init : null,			update : static_update,		damage: null,				touch: null }		
+	"player"	: { sprite : sprites["player"],		radius: 0.5,	init : player_init,		update : player_update,		damage: player_takeDamage,	touch: player_touch },
+	"guard"		: { sprite : sprites["guard"],		radius: 1,		init : ai_init,			update : ai_update,		    damage: ai_takeDamage,		touch: ai_touch },		
+	"healthpack": { sprite : sprites["healthpack"],	radius: 1,		init : null,			update : static_update,	    damage: null,				touch: healthPack_touch }		
 };
 
 function ray_direction(rayTheta)
@@ -142,51 +159,47 @@ function level_castRay(rayOrigin, rd)
 	return results;
 }
 
-function level_clipMovement(origin, movement, radius)
+function level_clipMovement(origin, movement, radius, radius_ep)
 {
-	var radius_ep = 0.0001;
+	var new_pp = [origin[0] + movement[0], origin[1] + movement[1]];
 
-	var hit = true;
-	while ( hit )
+	hit = false;
+	for (var i = 0; i < map.length; ++i)
 	{
-		var new_pp = [origin[0] + movement[0], origin[1] + movement[1]];
+		var wall = map[i];
+		
+		var w0 = [wall[0], wall[1]];
+		var w1 = [wall[2], wall[3]];
+		var pp_n = get_line_normal_away_from_p(w0, w1, origin);
 
-		hit = false;
-		for (var i = 0; i < map.length; ++i)
+		var p0 = [wall[0] - pp_n[0] * radius, wall[1] - pp_n[1] * radius];
+		var p1 = [wall[2] - pp_n[0] * radius, wall[3] - pp_n[1] * radius];
+		var n = get_line_normal_away_from_p(p0, p1, new_pp);
+		
+		// If we're still on the correct side of the wall, don't bother
+		if ( vec2_dot(pp_n, n) > 0 )
 		{
-			var wall = map[i];
+			continue;
+		}
+		
+		// Looks like we ended up on the other side. Move us out of the wall.
+		
+		var st = intersect2_ray_lineseg(new_pp, n, p0, p1);
+		
+		if ( st != null && 
+			 st[0] >= 0 && 
+			 st[1] >= -0.001 &&
+			 st[1] <= 1.001 )
+		{
+			// shift the movement vector back some
+			movement[0] += n[0] * (st[0] + radius_ep);
+			movement[1] += n[1] * (st[0] + radius_ep);
 			
-			var w0 = [wall[0], wall[1]];
-			var w1 = [wall[2], wall[3]];
-			var pp_n = get_line_normal_away_from_p(w0, w1, origin);
-
-			var p0 = [wall[0] - pp_n[0] * radius, wall[1] - pp_n[1] * radius];
-			var p1 = [wall[2] - pp_n[0] * radius, wall[3] - pp_n[1] * radius];
-			var n = get_line_normal_away_from_p(p0, p1, new_pp);
-			
-			// If we're still on the correct side of the wall, don't bother
-			if ( vec2_dot(pp_n, n) > 0 )
-			{
-				continue;
-			}
-			
-			// Looks like we ended up on the other side. Move us out of the wall.
-			
-			var st = intersect2_ray_lineseg(new_pp, n, p0, p1);
-			
-			if ( st != null && 
-				 st[0] >= 0 && 
-				 st[1] >= -0.001 &&
-				 st[1] <= 1.001 )
-			{
-				// shift the movement vector back some
-				movement[0] += n[0] * (st[0] + radius_ep);
-				movement[1] += n[1] * (st[0] + radius_ep);
-				
-				hit = true;
-			}
+			hit = true;
 		}
 	}
+	
+	return hit;
 }
 
 function level_init()

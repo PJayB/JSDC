@@ -11,14 +11,11 @@
 // Hurt the player on frame 2
 function ai_attackUpdate(entity, frame)
 {
-	if ( frame == 1 )
+	if ( frame == 1 && entity.target != null )
 	{
-		if ( Math.random() < 0.3 )
+		if ( Math.random() < 0.7 && entity.target.damage !== undefined )
 		{
-			if ( player_hurt(1) )
-			{
-				ai_switchState(entity, "idle", "idle");
-			}
+			entity_attack(entity, 1, 50);
 		}
 	}
 }
@@ -36,10 +33,20 @@ var ai_stateTable =
 var ai_moveSpeed = 6;
 var ai_attackThreshold = 2; // will stop walking, always attack
 var ai_maxHealth = 2;
+var ai_fov = 0.4;
 
 function ai_init()
 {
-	this.health = Math.ceil(Math.random() * ai_maxHealth);
+	if ( this.dir === undefined )
+	{
+		// select a random direction to face in
+		this.dir = vec2_fromAngle(Math.random() * (Math.PI * 2));
+	}
+	
+	this.target = null;
+	this.startHealth = Math.ceil(Math.random() * ai_maxHealth);
+	this.prevHealth = this.startHealth;
+	this.health = this.startHealth;
 	ai_switchState( this, "idle" );
 	this.active = true;
 }
@@ -51,18 +58,32 @@ function ai_kill(e)
 		ai_switchState(e, "die", "dead");
 		e.health = 0;
 	}
-	e.active = false;
+	
+	entity_die(e);
 }
 
-function ai_alert(e)
+function ai_alert(e, from)
 {
-	if ( e.state !== undefined )
+	if ( (e.state !== undefined) && 
+	     (e.target == null || e.target === undefined) &&
+	     (from.isPlayer) )
 	{
+		e.target = from;
 		ai_switchState(e, "hunt", "hunt");
 	}
 }
 
-function ai_takeDamage(d)
+function ai_touch(other)
+{
+	if ( other.isPlayer )
+	{
+		ai_alert(this, other);
+	}
+	
+	return true;
+}
+
+function ai_takeDamage(from, d)
 {
 	// if we're dead... stay dead?
 	if ( this.state == "dead" )
@@ -92,12 +113,29 @@ function ai_takeDamage(d)
 	}
 	else
 	{
+		this.target = from;
 		ai_switchState(this, "pain", "hunt");
 	}
 }
 
+function ai_checkForAlert(e, target)
+{
+	// if we can see them, then alert!
+	if ( entity_canSeeTarget(e, ai_fov, target) && e.state == "idle" )
+	{
+		// switch to a new state
+		ai_alert(e, target);
+		return true;
+	}
+	
+	return false;
+}
+
 function ai_update(dt)
 {
+	// clear our velocity
+	this.velocity = [0,0];
+	
 	// if we're dead or dying, just update
 	if ( this.state == "die" || this.state == "dead" )
 	{
@@ -105,79 +143,45 @@ function ai_update(dt)
 		return;
 	}
 	
-	// where's the player right now? can we see them?
-	var player_delta = vec2_sub(player_pos, this.pos);
-	var player_distance = vec2_len( player_delta );
-	player_delta = vec2_scale( player_delta, 1.0 / player_distance );
-	
-	// get our angle and direction in the world
-	if ( this.dir === undefined )
-	{
-		// select a random direction to face in
-		this.dir = vec2_fromAngle(Math.random() * (Math.PI * 2));
-	}
-	
-	// is the player in front of us? (some arbitrary cutoff)
-	var can_see_player = false;
-	
-	var player_angle = vec2_dot(this.dir, player_delta);
-	if ( !player_isDead && player_angle > 0.4 )
-	{
-		can_see_player = true;
-	}
-
-	if ( can_see_player )
-	{
-		var player_location = level_castRay(this.pos, player_delta);
-		for ( var i = 0; i < player_location.length; ++i )
-		{
-			// we hit something. is it between us and the player?
-			if ( player_location[i].dist < player_distance )
-			{
-				can_see_player = false;
-			}
-		}
-	}
-	
-	// if we can see them, then alert!
-	if ( can_see_player && this.state == "idle" )
-	{
-		// switch to a new state
-		ai_switchState(this, "hunt", "hunt");
-	}
+	// Check for alerted state
+	ai_checkForAlert(this, local_player);
 	
 	// if we're hunting, occasionally shoot stuff
 	if ( this.state == "hunt" )
 	{
 		// if the player died, stop hunting
-		if ( player_isDead )
+		if ( !this.target.active || !this.target.visible )
 		{
+			this.target = null;
 			ai_switchState(this, "idle");
 		}
 		else
 		{
+			// Is the target visible?
+			var can_see_player = entity_canSeeTarget(this, ai_fov, this.target);
+			
+			// Distance and direction to target
+			var target_dir = vec2_sub( this.target.pos, this.pos );
+			var target_dist = vec2_len( target_dir );
+			target_dir = vec2_scale( target_dir, 1 / target_dist );
+		
 			// continue doing what we're doing or fire?
 			// if we're close enough, fire our gun
 			// oh, but give the player a bit of time to leg it, too
-			var attack = (this.stateTime > 0.5 && (player_distance <= ai_attackThreshold || Math.random() < 1.0 / player_distance));
+			var attack = (this.stateTime > 0.5 && (target_dist <= ai_attackThreshold || Math.random() < 1.0 / target_dist));
 			if ( can_see_player && attack )
 			{
 				// switch to a new state!
 				ai_switchState(this, "attack", this.state);
 			}
-			else if (player_distance > ai_attackThreshold)
+			else if (target_dist > ai_attackThreshold)
 			{
 				// move towards the player
-				var movement = [player_delta[0] * ai_moveSpeed * dt,
-								player_delta[1] * ai_moveSpeed * dt];
-								
-				level_clipMovement(this.pos, movement, player_radius);
-				
-				this.pos[0] += movement[0];
-				this.pos[1] += movement[1];
+				this.velocity = [target_dir[0] * ai_moveSpeed,
+								 target_dir[1] * ai_moveSpeed];
 			}
 			
-			this.dir = player_delta;
+			this.dir = target_dir;
 		}
 	}
 
@@ -253,4 +257,7 @@ function ai_updateCurrentState(e, dt)
 		}
 		e.prevFrame = e.currentFrame;
 	}
+	
+	// Update the entity's position and shit
+	entity_update(e, dt);
 }
