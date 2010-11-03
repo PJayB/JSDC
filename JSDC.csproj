@@ -32,8 +32,6 @@
   <ItemGroup>
     <Content Include="assets\guard_back.png" />
     <Content Include="assets\wall_dc.jpg" />
-    <Content Include="chat.html" />
-    <Content Include="common\net.js" />
     <Content Include="game\ai.js" />
     <Content Include="common\browser.js" />
     <Content Include="common\clipboard.js" />
