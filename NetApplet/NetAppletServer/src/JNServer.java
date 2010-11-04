@@ -53,11 +53,11 @@ public class JNServer extends Applet implements Runnable {
 	{
 		if (_server != null)
 		{
-			g.drawString("Server started.", 0, 0);
+			g.drawString("Server started.", 0, 20);
 		}
 		else
 		{
-			g.drawString("Server failed to initialize.", 0, 0);
+			g.drawString("Server failed to initialize.", 0, 20);
 		}
 	}
 	

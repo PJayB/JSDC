@@ -42,11 +42,11 @@ public class JNClient extends Applet {
 	{
 		if (_socket != null)
 		{
-			g.drawString("Client started.", 0, 0);
+			g.drawString("Client started.", 0, 20);
 		}
 		else
 		{
-			g.drawString("Client failed to connect.", 0, 0);
+			g.drawString("Client failed to connect.", 0, 20);
 		}
 		
 		try
@@ -54,7 +54,7 @@ public class JNClient extends Applet {
 			if (_recv.ready())
 			{
 				String r = _recv.readLine();
-				g.drawString(r, 0, 20);
+				g.drawString(r, 0, 40);
 			}
 		}
 		catch(IOException e)
