@@ -47,7 +47,7 @@ function player_takeDamage(from, dmg)
 		// scream?
 		//player_die();
 		
-		entity_die(this);
+		entity_die(this, from);
 	}
 	
 	return this.isDead;
@@ -71,19 +71,28 @@ function player_update(dt)
 		this.viewHeight = Math.max(player_deadHeight, this.viewHeight - dt * 2);
 		
 		// look at our killer
-		
+		if (this.killer !== undefined && this.killer != null)
+		{
+		    this.dir = vec2_normalize(vec2_sub(this.killer.pos, this.pos));
+		}
 	
 		entity_update(this, dt);
 	
 		return;
 	}
 
-	this.damageFade = Math.max(0.0, this.damageFade - dt * 4);
+	var damage_fade = 0;
+	if (this.health < 3)
+	{
+	    damage_fade = (2 - this.health) * 0.5;
+	}
+
+	this.damageFade = Math.max(damage_fade, this.damageFade - dt * 4);
 	this.healFade = Math.max(0.0, this.healFade - dt * 4);
 	
 	if ( this.health > this.startHealth )
 	{
-		this.health = Math.min( this.startHealth, this.health - dt );
+		this.health = Math.max( this.startHealth, this.health - dt );
 	}
 	
 	entity_update(this, dt);

@@ -72,7 +72,7 @@ var entity_templates =
 //	"guard"		: { sprite : sprites["guard"],		radius: 1,		init : null,			update : static_update,		damage: null,				touch: null }		
 	"player"	: { sprite : sprites["player"],		radius: 0.5,	init : player_init,		update : player_update,		damage: player_takeDamage,	touch: player_touch },
 	"guard"		: { sprite : sprites["guard"],		radius: 1,		init : ai_init,			update : ai_update,		    damage: ai_takeDamage,		touch: ai_touch },		
-	"healthpack": { sprite : sprites["healthpack"],	radius: 1,		init : null,			update : static_update,	    damage: null,				touch: healthPack_touch }		
+	"healthpack": { sprite : sprites["healthpack"],	radius: 2,		init : null,			update : static_update,	    damage: null,				touch: healthPack_touch }		
 };
 
 function ray_direction(rayTheta)

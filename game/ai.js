@@ -51,15 +51,15 @@ function ai_init()
 	this.active = true;
 }
 
-function ai_kill(e)
+function ai_kill(e, killer)
 {
 	if ( e.state !== undefined )
 	{
 		ai_switchState(e, "die", "dead");
 		e.health = 0;
 	}
-	
-	entity_die(e);
+
+	entity_die(e, killer);
 }
 
 function ai_alert(e, from)
@@ -109,7 +109,7 @@ function ai_takeDamage(from, d)
 	// die or play the pain anim?
 	if ( this.health < 0 )
 	{
-		ai_kill(this);
+		ai_kill(this, from);
 	}
 	else
 	{

@@ -216,8 +216,9 @@
 			var rayOrigin = local_player.pos;
 						
 			var viewHeight = local_player.viewHeight;
-			
-			var base_rd = ray_direction(rotation_x);
+
+			var base_rd = local_player.dir;
+			var rotation = vec2_toAngle(base_rd);
 
 			draw_floor(viewport, ctx, viewHeight, viewDist, strip_width);
 			
@@ -230,7 +231,7 @@
 				// generate the ray that shoots through the middle of this
 				// segment
 				var rayAngle = ((strip_idx / num_strips) - 0.5) * fov;
-				var rayDir = ray_direction(rayAngle + rotation_x);
+				var rayDir = ray_direction(rayAngle + rotation);
 				
 				var results = level_castRay(rayOrigin, rayDir);
 				

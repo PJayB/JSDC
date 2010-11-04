@@ -13,7 +13,7 @@ function healthPack_touch(entity)
 	{
 		if ( entity.health < entity.startHealth )
 		{
-			entity_heal(this, entity, 5);
+			entity_heal(this, entity, Math.min(5, entity.startHealth - entity.health));
 			this.visible = false;
 			entity_die(this);
 		}

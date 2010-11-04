@@ -162,10 +162,11 @@ function entity_heal(from, e, dmg)
 	entity_hurt(from, e, -dmg);
 }
 
-function entity_die(e)
+function entity_die(e, killer)
 {
 	e.velocity = [0,0];
 	e.active = false;
+	e.killer = killer;
 }
 
 function entity_canSeeTarget(e, e_fov, target)
