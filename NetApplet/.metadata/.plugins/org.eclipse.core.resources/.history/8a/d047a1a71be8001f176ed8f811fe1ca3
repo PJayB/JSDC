@@ -1,0 +1,38 @@
+import java.applet.Applet;
+import java.io.*;
+import java.net.*;
+import javax.swing.*;
+import java.awt.*; 
+
+public class JNClient extends Applet {
+
+	private Socket _socket;
+	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
+	public void init()
+	{
+		_socket = new Socket("localhost", 44444);
+	}
+	
+	public void stop()
+	{
+	}
+	
+	public void paint(Graphics g)
+	{
+		if (_socket != null)
+		{
+			g.drawString("Client started.", 0, 0);
+		}
+		else
+		{
+			g.drawString("Client failed to connect.", 0, 0);
+		}
+	}
+	
+	
+}

@@ -1,0 +1,16 @@
+import java.applet.Applet;
+import java.io.*;
+import java.net.*;
+import javax.swing.*;
+
+public class JNClient extends Applet {
+
+	private static Socket _socket;
+	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
+	
+}

@@ -1,0 +1,30 @@
+import java.applet.Applet;
+import java.io.*;
+import java.net.*;
+import javax.swing.*;
+import java.awt.*; 
+
+public class JNServer extends Applet {
+
+	private static ServerSocket _socket;
+	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
+	public void init()
+	{
+	}
+	
+	public void stop()
+	{
+	}
+	
+	public void paint(Graphics g)
+	{
+		g.drawString("Client started.", 0, 0);
+	}
+	
+	
+}

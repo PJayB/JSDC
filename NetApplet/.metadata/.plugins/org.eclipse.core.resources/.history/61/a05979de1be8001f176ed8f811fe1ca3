@@ -1,0 +1,53 @@
+import java.applet.Applet;
+import java.io.*;
+import java.net.*;
+import javax.swing.*;
+import java.awt.*; 
+
+public class JNServer extends Applet {
+
+	private ServerSocket _server;
+	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
+	public void init()
+	{
+		try
+		{
+			_server = new ServerSocket(44444);
+		}
+		catch (IOException e)
+		{
+			// failed to start :(
+		}
+	}
+	
+	public void stop()
+	{
+		try
+		{
+			if (_server != null) { _server.close(); }
+		}
+		catch (IOException e)
+		{
+			
+		}
+	}
+	
+	public void paint(Graphics g)
+	{
+		if (_server != null)
+		{
+			g.drawString("Server started.", 0, 0);
+		}
+		else
+		{
+			g.drawString("Server failed to initialize.", 0, 0);
+		}
+	}
+	
+	
+}
