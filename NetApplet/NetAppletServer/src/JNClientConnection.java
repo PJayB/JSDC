@@ -1,69 +1,53 @@
 import java.net.*;
 import java.io.*;
 
-public class JNClientConnection 
-{
+public class JNClientConnection {
 
 	private Socket _socket;
 	private DataInputStream _reader;
 	private DataOutputStream _writer;
-	
-	public JNClientConnection(Socket s)
-	{
+
+	public JNClientConnection(Socket s) {
 		_socket = s;
-		try
-		{
+		try {
 			_reader = new DataInputStream(s.getInputStream());
 			_writer = new DataOutputStream(s.getOutputStream());
-		}
-		catch (IOException e)
-		{
+		} catch (IOException e) {
 		}
 	}
-	
-	public String getRemoteIP()
-	{
+
+	public String getRemoteIP() {
 		InetAddress na = _socket.getInetAddress();
-		if (na != null)
-		{
+		if (na != null) {
 			return na.getHostAddress();
 		}
 		return "";
 	}
-	
-	public int getPort()
-	{
+
+	public int getPort() {
 		return _socket.getPort();
 	}
-	
-	public boolean isConnected()
-	{
+
+	public boolean isConnected() {
 		return _socket.isConnected();
 	}
-	
-	public int available() throws IOException
-	{
+
+	public int available() throws IOException {
 		return _reader.available();
 	}
-	
-	public void close()
-	{
-		try
-		{
+
+	public void close() {
+		try {
 			_socket.close();
-		}			
-		catch (IOException e)
-		{
+		} catch (IOException e) {
 		}
 	}
-	
-	public DataInputStream getInputStream()
-	{
+
+	public DataInputStream getInputStream() {
 		return _reader;
 	}
-	
-	public DataOutputStream getOutputStream()
-	{
+
+	public DataOutputStream getOutputStream() {
 		return _writer;
 	}
 }
