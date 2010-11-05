@@ -4,16 +4,13 @@ import java.io.*;
 public class JNClientConnection {
 
 	private Socket _socket;
-	private DataInputStream _reader;
-	private DataOutputStream _writer;
 
-	public JNClientConnection(Socket s) {
+	protected JNClientConnection(Socket s) {
 		_socket = s;
-		try {
-			_reader = new DataInputStream(s.getInputStream());
-			_writer = new DataOutputStream(s.getOutputStream());
-		} catch (IOException e) {
-		}
+	}
+
+	protected void finalize() {
+		close();
 	}
 
 	public String getRemoteIP() {
@@ -24,16 +21,16 @@ public class JNClientConnection {
 		return "";
 	}
 
-	public int getPort() {
+	public int getRemotePort() {
 		return _socket.getPort();
+	}
+
+	public int getLocalPort() {
+		return _socket.getLocalPort();
 	}
 
 	public boolean isConnected() {
 		return _socket.isConnected();
-	}
-
-	public int available() throws IOException {
-		return _reader.available();
 	}
 
 	public void close() {
@@ -43,11 +40,11 @@ public class JNClientConnection {
 		}
 	}
 
-	public DataInputStream getInputStream() {
-		return _reader;
+	public InputStream getInputStream() throws IOException {
+		return _socket.getInputStream();
 	}
 
-	public DataOutputStream getOutputStream() {
-		return _writer;
+	public OutputStream getOutputStream() throws IOException {
+		return _socket.getOutputStream();
 	}
 }

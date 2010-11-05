@@ -8,17 +8,11 @@ public class JNServer implements Runnable {
 	private Thread _listenerThread;
 	private Collection<JNClientConnection> _clients;
 
-	public JNServer(int port) {
-		try {
-			_server = new ServerSocket(port);
-		} catch (IOException e) {
-			// failed to start :(
-		}
+	protected JNServer(ServerSocket s) {
+		_server = s;
 
-		if (_server != null) {
-			_listenerThread = new Thread(this);
-			_listenerThread.start();
-		}
+		//_listenerThread = new Thread(this);
+		//_listenerThread.start();
 	}
 
 	protected void finalize() {
@@ -30,14 +24,16 @@ public class JNServer implements Runnable {
 	}
 
 	public void removeClient(JNClientConnection client) {
-		synchronized (_clients) {
+		synchronized (_clients)
+		{
 			client.close();
 			_clients.remove(client);
 		}
 	}
 
 	public void removeDeadClients() {
-		synchronized (_clients) {
+		synchronized (_clients)
+		{
 			// Check if any clients dropped
 			Iterator<JNClientConnection> i = _clients.iterator();
 			while (i.hasNext()) {
@@ -51,14 +47,24 @@ public class JNServer implements Runnable {
 		}
 	}
 
+	public String getLocalIP() {
+		return _server.getInetAddress().getHostAddress();
+	}
+
+	public int getLocalPort() {
+		return _server.getLocalPort();
+	}
+
 	public JNClientConnection[] getClients() {
-		synchronized (_clients) {
+		synchronized (_clients)
+		{
 			return (JNClientConnection[]) _clients.toArray();
 		}
 	}
 
 	public int getClientCount() {
-		synchronized (_clients) {
+		synchronized (_clients)
+		{
 			return _clients.size();
 		}
 	}
@@ -73,6 +79,8 @@ public class JNServer implements Runnable {
 			i.next().close();
 		}
 
+		_clients.clear();
+
 		try {
 			if (_server != null) {
 				_server.close();
@@ -85,7 +93,8 @@ public class JNServer implements Runnable {
 	public void run() {
 		// poll for new connections
 		while (true) {
-			synchronized (_clients) {
+			synchronized (_clients)
+			{
 				try {
 					Socket new_client = _server.accept();
 

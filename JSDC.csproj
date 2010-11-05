@@ -42,6 +42,7 @@
     <Content Include="game\controls.js" />
     <Content Include="game\entity.js" />
     <Content Include="game\level.js" />
+    <Content Include="game\net.js" />
     <Content Include="game\pickups.js" />
     <Content Include="game\player.js" />
     <Content Include="images\cakeordeath.png" />
