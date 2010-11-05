@@ -1,13 +1,16 @@
 import java.applet.Applet;
 import java.io.*;
 import java.net.*;
+
 import javax.swing.*;
 import java.awt.*; 
+import java.util.*;
 
 public class JNServer extends Applet implements Runnable {
 
 	private ServerSocket _server;
 	private Thread _listenerThread;
+	private Collection<Socket> _clients;
 	
 	/**
 	 * 
@@ -39,6 +42,18 @@ public class JNServer extends Applet implements Runnable {
 			_listenerThread.stop();
 		}
 		
+		Iterator<Socket> i = _clients.iterator();
+		while (i.hasNext())
+		{
+			try
+			{
+				i.next().close();
+			}
+			catch (IOException e)
+			{
+			}
+		}
+		
 		try
 		{
 			if (_server != null) { _server.close(); }
@@ -66,19 +81,18 @@ public class JNServer extends Applet implements Runnable {
 		// poll for new connections
 		while (true)
 		{
-			try
+			synchronize(_clients)
 			{
-				Socket new_client = _server.accept();
-				
-				DataOutputStream ps = new DataOutputStream(new_client.getOutputStream());
-								
-				ps.writeChars("Hi, client!");
-				
-				new_client.close();
-			}
-			catch (IOException e)
+				try
+				{
+					Socket new_client = _server.accept();
+					
+					_clients.add(new_client);
+				}
+				catch (IOException e)
+				{
+				}
 			{
-			}
 		}
 	}
 }
