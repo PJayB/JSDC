@@ -1,27 +1,18 @@
-import java.applet.Applet;
 import java.io.*;
 import java.net.*;
-
-import javax.swing.*;
-import java.awt.*; 
 import java.util.*;
 
-public class JNServer extends Applet implements Runnable {
+public class JNServer implements Runnable {
 
 	private ServerSocket _server;
 	private Thread _listenerThread;
-	private Collection<Socket> _clients;
+	private Collection<JNClientConnection> _clients;
 	
-	/**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
-
-	public void init()
+	public JNServer(int port)
 	{
 		try
 		{
-			_server = new ServerSocket(44444);
+			_server = new ServerSocket(port);
 		}
 		catch (IOException e)
 		{
@@ -35,23 +26,71 @@ public class JNServer extends Applet implements Runnable {
 		}
 	}
 	
-	public void stop()
+	protected void finalize()
+	{
+		close();
+	}
+	
+	public boolean isBound()
+	{
+		return _server != null && _server.isBound();
+	}
+	
+	public void removeClient(JNClientConnection client)
+	{
+		synchronized(_clients)
+		{
+			client.close();
+			_clients.remove(client);
+		}
+	}
+	
+	public void removeDeadClients()
+	{
+		synchronized(_clients)
+		{
+			// Check if any clients dropped
+			Iterator<JNClientConnection> i = _clients.iterator();
+			while ( i.hasNext() )
+			{
+				JNClientConnection client = i.next();
+				
+				if (!client.isConnected())
+				{
+					// Dropped
+					removeClient(client);
+				}
+			}
+		}
+	}
+	
+	public JNClientConnection[] getClients()
+	{
+		synchronized(_clients)
+		{
+			return (JNClientConnection[]) _clients.toArray();
+		}
+	}
+	
+	public int getClientCount()
+	{
+		synchronized(_clients)
+		{
+			return _clients.size();
+		}
+	}
+	
+	public void close()
 	{
 		if ( _listenerThread != null )
 		{
 			_listenerThread.stop();
 		}
 		
-		Iterator<Socket> i = _clients.iterator();
+		Iterator<JNClientConnection> i = _clients.iterator();
 		while (i.hasNext())
 		{
-			try
-			{
-				i.next().close();
-			}
-			catch (IOException e)
-			{
-			}
+			i.next().close();
 		}
 		
 		try
@@ -64,35 +103,23 @@ public class JNServer extends Applet implements Runnable {
 		}
 	}
 	
-	public void paint(Graphics g)
-	{
-		if (_server != null)
-		{
-			g.drawString("Server started.", 0, 20);
-		}
-		else
-		{
-			g.drawString("Server failed to initialize.", 0, 20);
-		}
-	}
-	
 	public void run()
 	{
 		// poll for new connections
 		while (true)
 		{
-			synchronize(_clients)
+			synchronized(_clients)
 			{
 				try
 				{
 					Socket new_client = _server.accept();
 					
-					_clients.add(new_client);
+					_clients.add(new JNClientConnection(new_client));
 				}
 				catch (IOException e)
 				{
 				}
-			{
+			}
 		}
 	}
 }
