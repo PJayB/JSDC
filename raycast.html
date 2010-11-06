@@ -20,7 +20,6 @@
 		<script type="text/javascript" src="game/level.js"></script>
 		<script type="text/javascript" src="game/controls.js"></script>
 		<script type="text/javascript" src="game/map.js"></script>
-		<script type="text/javascript" src="game/net.js"></script>
 		
         <script type="text/javascript">
 		
@@ -58,48 +57,6 @@
 		var local_player = null;
 		
 		var page_ready = false;
-		
-		function checkApplets() 
-		{
-			page_ready = false;
-				
-			var applets = document.getElementsByName('applet');
-
-			if (applets.length == 0) 
-			{
-				page_ready = true;
-				return true;
-			}
-			
-			for ( var i = applets.length - 1; i > 0; --i ) 
-			{
-				if ( !applets[i].isActive() ) 
-				{
-					window.timerId = setTimeout(checkApplets, 250);
-					return false;
-				}
-			}
-
-			if ( window.timerId ) 
-			{
-				clearTimeout( window.timerId );
-			}
-
-			page_ready = true;
-			return true;
-		}
-
-		function getNetApplet()
-		{
-			checkApplets();
-			
-			// TODO: fix me up to do something useful
-			while ( !page_ready )
-			{
-			}
-			
-			return document.netapplet;
-		}
 		
 		function make_colour(r, g, b)
 		{
@@ -655,8 +612,6 @@
 			var dt = Math.min((now - lastTime) / 1000, 1);
 			
 			lastTime = now;
-			
-			net_update();
 	
 			if ( local_player.active )
 			{
@@ -732,25 +687,6 @@
             log( "Hi!");
             
 			lastTime = new Date().getTime();
-			
-			///*
-			var netapplet = getNetApplet();
-			if ( netapplet != null )
-			{
-				net_init(netapplet);
-				
-				var connected = false;
-				if (host !== undefined)
-				{
-					connected = net_connect(host);
-				}
-				
-				if ( !connected )
-				{
-					net_startServer();
-				}
-			}
-			//*/
 	
             level_init();
             
@@ -824,18 +760,10 @@
 						onmouseup="hmouse_up(event)"
 						onmousemove="hmouse_move(event, this)">
 					</canvas>
-					<object type="application/x-java-applet;version=1.4.1"
-						width= "0" height= "0" name="netapplet" id="netapplet">	
-						<param name="archive" value="NetAppletServer.jar"> 
-						<param name="code" value="JNApplet.class"> 
-						<param name="mayscript" value="yes"> 
-						<param name="scriptable" value="true"> 
-						<param name="name" value="netapplet">
-					</object>
 				</div>
 				<div class="separator"></div>
 				<!--<div id="status" width="100%"></div>-->
-				<div id="log_frame" width="100%"><ul id="log"></ul></div>
+				<!--<div id="log_frame" width="100%"><ul id="log"></ul></div>-->
 				<div class="navcluster">
 					<div class="leftnav">
 						<img src="images/keyboard.png" />
