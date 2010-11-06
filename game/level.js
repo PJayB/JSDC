@@ -9,13 +9,15 @@
 
 var materials = 
 {	
-	"whitewall"	: { name : "wall_dc.jpg"		},
-	"red"		: { name : "#FF0000"			},
-	"green"		: { name : "#00FF00"			},
-	"blue"		: { name : "#0000FF"			},
-	"white"		: { name : "#FFFFFF"			},
-	"window"	: { name : "wall_window.png",	alpha : true, shade : true },
-	"roughstone": { name : "roughstone.jpg"	    }
+	"stonewall"	: { name : "wall_dc.jpg"		},
+	"whitewall" : { name : "whitewall.png"		},
+	"craggy"	: { name : "craggy.jpg"			},
+	"ivy"		: { name : "ivy.jpg"			},
+	"_red"		: { name : "#FF0000"			},
+	"_green"	: { name : "#00FF00"			},
+	"_blue"		: { name : "#0000FF"			},
+	"_white"	: { name : "#FFFFFF"			},
+	"_midgrey"	: { name : "#888888"			}
 };
 
 var sprites =
@@ -69,10 +71,9 @@ function static_update(dt)
 		
 var entity_templates =
 {
-//	"guard"		: { sprite : sprites["guard"],		radius: 1,		init : null,			update : static_update,		damage: null,				touch: null }		
-	"player"	: { sprite : sprites["player"],		radius: 0.5,	init : player_init,		update : player_update,		damage: player_takeDamage,	touch: player_touch },
 	"guard"		: { sprite : sprites["guard"],		radius: 1,		init : ai_init,			update : ai_update,		    damage: ai_takeDamage,		touch: ai_touch },		
-	"healthpack": { sprite : sprites["healthpack"],	radius: 2,		init : null,			update : static_update,	    damage: null,				touch: healthPack_touch }		
+	"healthpack": { sprite : sprites["healthpack"],	radius: 2,		init : null,			update : static_update,	    damage: null,				touch: healthPack_touch },	
+	"player"	: { sprite : sprites["player"],		radius: 0.5,	init : player_init,		update : player_update,		damage: player_takeDamage,	touch: player_touch }
 };
 
 function ray_direction(rayTheta)

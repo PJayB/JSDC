@@ -5,7 +5,7 @@
 -->
 <html>
     <head>
-        <title>Canvas Test</title>
+        <title>JSDC Editor</title>
 		<link rel="stylesheet" type="text/css" href="stylesheets/MainPage.css">
 		
 		<script type="text/javascript" src="common/browser.js"></script>
@@ -81,7 +81,14 @@
 						output += '"';
 					}
 				}
-				output += " ],<br/>";
+				output += " ]";
+				
+				if ( i != map.length - 1 )
+				{
+					output += ",";
+				}
+				
+				output += "<br/>";
 			}
 			output += "];<br/><br/>";
 			
@@ -93,7 +100,14 @@
 				output += entities[i].pos[1] + "], dir: [";
 				output += entities[i].dir[0] + ", ";
 				output += entities[i].dir[1] + '], type: "';
-				output += entities[i].type + '" },<br/>';
+				output += entities[i].type + '" }';
+								
+				if ( i !=entities.length - 1 )
+				{
+					output += ",";
+				}
+				
+				output += "<br/>";
 			}
 			output += "];<br/><br/>";
 			

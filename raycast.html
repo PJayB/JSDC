@@ -682,6 +682,21 @@
 			}
 		}
 		
+		function find_player_spawn()
+		{
+			var spawn = null;
+            for ( var i = 0; i < entities.length; ++i )
+            {
+				if ( entities[i].type == "player" )
+				{
+					spawn = entities[i];
+					break;
+				}
+			}
+			
+			return spawn;
+		}
+		
         function init(host)
         {
             log( "Hi!");
@@ -691,13 +706,21 @@
             level_init();
             
             // Spawn the player
-            local_player = entities[entities.length] = 
-            {
-				pos: [0,0],
-				dir: [0,1],
-				type: "player"
-            };
-            
+			local_player = find_player_spawn();
+			if ( local_player == null )
+			{
+				log( "Warning: no player spawn." );
+				
+				local_player = entities[entities.length] = 
+				{
+					pos: [0,0],
+					dir: [0,1],
+					type: "player"
+				};
+			}
+			
+			controls_init(local_player);
+			            
             //spawn_random_enemies(30);
 			
 			// Load the images

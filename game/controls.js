@@ -58,6 +58,11 @@ function controls_keyUp(event)
 	movement_keys[getKey(event)] = false;
 }
 
+function controls_init(control_entity)
+{
+	rotation_x = vec2_toAngle(control_entity.dir);
+}
+
 function controls_update(dt, control_entity)
 {
 	var movement = [0,0];
