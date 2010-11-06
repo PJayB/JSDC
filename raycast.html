@@ -611,6 +611,9 @@
 			//var dt = 1 / 30.0;
 			var dt = Math.min((now - lastTime) / 1000, 1);
 			
+			// Limit to 30 fps ticks - otherwise the collision detection goes CRAZY
+			dt = Math.max(dt, 33/1000);
+			
 			lastTime = now;
 	
 			if ( local_player.active )
@@ -793,6 +796,8 @@
 						
 						<div class="rightnav">
 							<h3>Having Problems?</h3>
+							This is a work in progress.<br />
+							Works best in <a href="http://www.google.com/chrome">Google Chrome</a>. Everything else seems to suck at HTML5.<br />
 							<a href="mailto:forge@roaringfist.com?subject=Problem with JSDC (<? echo $_SERVER['HTTP_USER_AGENT']; ?>)&body=Please%20explain%20the%20issues%20you%20were%20having%20here.">I don't see anything / It doesn't work properly &raquo;</a><br/>
 							<a href="http://www.google.co.uk/search?sourceid=chrome&ie=UTF-8&q=fluffy+bunnies">Take me away from this gimmicky crap &raquo;</a><br/>
 							<br />
