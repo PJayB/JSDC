@@ -60,6 +60,13 @@ var sprites =
 	    scale  : 0.2,
 	    fCount : 2,
 	    fps    : 2
+	},
+	"bullets" :
+	{
+		images : ["bullets.png"],
+		scale  : 0.2,
+		fCount : 2,
+		fps    : 2
 	}
 };		
 
@@ -73,6 +80,7 @@ var entity_templates =
 {
 	"guard"		: { sprite : sprites["guard"],		radius: 1,		init : ai_init,			update : ai_update,		    damage: ai_takeDamage,		touch: ai_touch },		
 	"healthpack": { sprite : sprites["healthpack"],	radius: 2,		init : null,			update : static_update,	    damage: null,				touch: healthPack_touch },	
+	"bullets"   : { sprite : sprites["bullets"],    radius: 2,      init : null,            update : static_update,     damage: null,               touch: bullets_touch },
 	"player"	: { sprite : sprites["player"],		radius: 0.5,	init : player_init,		update : player_update,		damage: player_takeDamage,	touch: player_touch }
 };
 

@@ -7,9 +7,14 @@
 	Thanks.
 */
 
+function entity_can_pickup_stuff(entity)
+{
+	return ( entity.health !== undefined && entity.active == true && entity.isPlayer );
+}
+
 function healthPack_touch(entity)
 {
-	if( entity.health !== undefined && entity.active == true && entity.isPlayer )
+	if( entity_can_pickup_stuff(entity) )
 	{
 		if ( entity.health < entity.startHealth )
 		{
@@ -20,3 +25,17 @@ function healthPack_touch(entity)
 	}
 }
 
+function bullets_touch(entity)
+{
+	if ( entity_can_pickup_stuff(entity) )
+	{
+		if ( entity.ammo_bullets !== undefined )
+		{
+			entity.ammo_bullets = Math.max( entity.ammo_bullets + 10, player_maxBullets );
+		}
+		else
+		{
+			entity.ammo_bullets = 10;
+		}
+	}
+}

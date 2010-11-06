@@ -13,6 +13,8 @@ var player_defaultHeight = 1.2;
 var player_deadHeight = 0.2;
 var player_isDead = false;
 
+var player_maxBullets = 100;
+
 var player_damageFade = 0;
 
 function player_init()
