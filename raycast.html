@@ -733,22 +733,24 @@
             
 			lastTime = new Date().getTime();
 			
-			/*
+			///*
 			var netapplet = getNetApplet();
 			if ( netapplet != null )
 			{
+				net_init(netapplet);
+				
 				var connected = false;
 				if (host !== undefined)
 				{
-					connected = net_connect(netapplet, host);
+					connected = net_connect(host);
 				}
 				
 				if ( !connected )
 				{
-					net_startServer(netapplet);
+					net_startServer();
 				}
 			}
-			*/
+			//*/
 	
             level_init();
             
@@ -832,10 +834,10 @@
 					</object>
 				</div>
 				<div class="separator"></div>
+				<!--<div id="status" width="100%"></div>-->
+				<div id="log_frame" width="100%"><ul id="log"></ul></div>
 				<div class="navcluster">
 					<div class="leftnav">
-						<!--<div id="status"></div>-->
-						<!--<div id="log"></div>-->
 						<img src="images/keyboard.png" />
 						
 						<div class="rightnav">
@@ -853,8 +855,6 @@
 				</div>
 				
 			</div>
-<!--        <div id="log_frame"
-			width="100%"><ul id="log"></ul></div>-->
 		</div>
     </body>
 </html>
