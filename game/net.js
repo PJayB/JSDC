@@ -49,12 +49,19 @@ function net_connect(host)
 	
 	try
 	{
-		_net_client = _net_api.connect(host, _net_port);
-		log("Connected to " + _net_client.getRemoteIP(_net_client) + ":" + _net_client.getRemotePort(_net_client));
+		_net_client = _net_api.fart(host, _net_port);
+		
+		//_net_client = _net_api.connect(host, _net_port);
+		//log("Connected to " + _net_client.getRemoteIP(_net_client) + ":" + _net_client.getRemotePort(_net_client));
 	}
 	catch (e)
 	{
-		log("Failed to connect to " + host + ":" + _net_port + ". (" + e.message + ")");
+		log("Error while trying to connect to " + host + ":" + _net_port + ": " + e.message + ".");
+	}
+	
+	if (_net_client == null)
+	{
+		log("Failed to connect to " + host + ":" + _net_port + ".");
 	}
 }
 
