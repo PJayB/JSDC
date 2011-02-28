@@ -29,13 +29,12 @@ function bullets_touch(entity)
 {
 	if ( entity_can_pickup_stuff(entity) )
 	{
-		if ( entity.ammo_bullets !== undefined )
+		if ( entity.ammo !== undefined && entity.ammo < player_maxBullets )
 		{
-			entity.ammo_bullets = Math.max( entity.ammo_bullets + 10, player_maxBullets );
-		}
-		else
-		{
-			entity.ammo_bullets = 10;
+			entity.ammo = Math.min( entity.ammo + 10, player_maxBullets );
+			entity.ammoFade = 1;
+			this.visible = false;
+			entity_die(this);
 		}
 	}
 }

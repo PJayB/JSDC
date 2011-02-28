@@ -54,6 +54,8 @@
 		var gun_frameTime = 0;
 		var gun_fps = 16;
 		
+		var ammo_tex;
+		
 		var local_player = null;
 		
 		var page_ready = false;
@@ -463,7 +465,7 @@
 				draw_locator_triangle(ctx, viewport, halfX, halfY, vec2_toAngle(base_rd), "#0000FF");
 			}
 			
-			if ( !local_player.isDead )
+			if ( !local_player.isDead && local_player.ammo > 0 )
 			{
 				// draw the gun
 				var gun_width = gun_tex.width / gun_frames;
@@ -499,6 +501,14 @@
 				ctx.fillRect(0, 0, viewport.width, viewport.height);
 				ctx.restore();
 			}
+			if ( local_player.ammoFade > 0 )
+			{
+				ctx.save();
+				ctx.globalAlpha = 0.3 * local_player.ammoFade;
+				ctx.fillStyle = "#FFAA44";
+				ctx.fillRect(0, 0, viewport.width, viewport.height);
+				ctx.restore();
+			}
 			
 			// draw player health
 			var health_size = 10;
@@ -521,17 +531,50 @@
 				ctx.fillRect(health_x - health_hsize, health_y - health_size, health_hsize * 2, health_size * 2);
 				health_x += health_size * 2 + 5;
 			}
+			
+			// draw player ammo
+			ctx.save();
+			
+			var ammo_width = 30;
+			var ammo_height = player_maxBullets;
+			var ammo_basey = viewport.height - 10;
+			var ammo_x = viewport.width - 25 - ammo_width;
+			var ammo_count = local_player.ammo;
+			var ammo_y = ammo_basey - ammo_height;
+			var ammo_shade = Math.min(255, (ammo_count / player_maxBullets) * 255);
+			var ammo_imgX = ammo_x + ammo_width * 0.5 - ammo_tex.width * 0.5;
+			var ammo_imgY = ammo_basey - ammo_tex.height;
+			
+			// background
+			ctx.globalAlpha = 0.6;
+			ctx.fillStyle = "#AAAAAA";
+			ctx.fillRect(ammo_x, ammo_y, ammo_width, ammo_height - ammo_count);
+			
+			// ammo
+			ctx.globalAlpha = 1.0;
+			ctx.fillStyle = make_colour(255 - ammo_shade, ammo_shade, 0); 
+			ctx.fillRect(ammo_x, ammo_basey - ammo_count, ammo_width, ammo_count);
+			ctx.drawImage(
+				ammo_tex, 
+				0, 0,
+				ammo_tex.width, ammo_tex.height, 
+				ammo_imgX, ammo_imgY,
+				ammo_tex.width, ammo_tex.height);
+							
+			ctx.restore();
 		}
 		
 		function fire_gun()
 		{
-			if ( local_player.isDead || !local_player.active )
+			if ( local_player.isDead || !local_player.active || local_player.ammo <= 0 )
 			{
 				return;
 			}
 		
 			gun_animating = true;
 			gun_frameTime = 0;
+			
+			local_player.ammo -= 1;
 			
 			entity_attack(local_player, 1, 50);
 		}
@@ -729,6 +772,8 @@
 			// Load the images
 			gun_tex = new Image();
 			gun_tex.src = 'assets/d3dhandgun.png';
+			ammo_tex = new Image();
+			ammo_tex.src = 'assets/bullet.png';
 			
 			for ( key in materials )
 			{
