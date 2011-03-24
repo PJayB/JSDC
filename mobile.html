@@ -15,7 +15,7 @@
 			top: 50%;			left: 50%;
 			width: 500px;
 			height: 100px;
-			margin-top: -50px; 
+			margin-top: -250px; 
 			margin-left: -250px; 
 			text-align: center;
 		</style>
@@ -23,10 +23,16 @@
     <body>
 		<div class="error">
 			<img src="images/cakeordeath.png" />
-			<h3>Sorry, this website currently does not support your mobile device or browser.</h3>
-			<p>If you are using a mobile device, this is a work in progress.</p>
-			<p>If you are using Internet Explorer, this browser doesn't currently support the required features.</p>
-			<p>If you think it should, please <a href="mailto:forge@roaringfist.com?subject=JSDC Support for <? echo $_SERVER['HTTP_USER_AGENT']; ?>">email us</a>.</p>
+			<h2>Sorry, this website currently does work optimally on this device or browser.</h2>
+			<table border="0">
+			    <tr><td width="100px"><img src="images/mobile.png" /></td><td><p>If you are using a mobile device, this is a work in progress.</p></td></tr>
+			    <tr><td><img src="images/ie.png" /></td><td><p>If you are using Internet Explorer, this browser doesn't currently support the required features.</p></td></tr>
+			    <tr><td><img src="images/ff.png" /></td><td rowspan="2"><p>If you are using FireFox or Opera, these browsers does not implement the HTML5 Canvas tag efficiently enough to cope with JSDC (yet!)</p></td></tr>
+			    <tr><td><img src="images/opera.png" /></td></tr>
+			</table>
+			
+			<p>If you think this in error, please <a href="mailto:forge@roaringfist.com?subject=JSDC Support for <? echo $_SERVER['HTTP_USER_AGENT']; ?>">email us</a>.</p>
+			<p>You can still <a href="?idontcare">proceed</a>, but you may notice severe performance issues.</p>
 		</div>
     </body>
 </html>
