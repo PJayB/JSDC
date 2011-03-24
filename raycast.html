@@ -5,7 +5,7 @@
 -->
 <html>
     <head>
-        <title>JSDC</title>
+        <title>JSDC: JavaScript Doom Clone (ALPHA)</title>
 		<link rel="stylesheet" type="text/css" href="stylesheets/MainPage.css">
 		
 		<script type="text/javascript" src="common/browser.js"></script>
@@ -23,8 +23,6 @@
 		
         <script type="text/javascript">
 		
-		var lastTime = null;
-
 		var key_m = 77;
 		
 		var ceiling_fill = [0.67, 0.67, 0.7];
@@ -44,6 +42,9 @@
 		var desired_tickrate = 1000 / fps;
 		var updateTimer;
 		var frameCount = 0;
+		var leftOverTime = 0;
+		var lastTime = new Date().getTime();
+
 		var depth_buffer = [];
 		
 		var gun_tex;
@@ -645,38 +646,40 @@
 
 			// sort the sprites based on distance
 			entities.sort(entitySort);
-		}
-		
+        }
+
 		function update()
 		{
-			var now = new Date().getTime();
-			
-			//var dt = 1 / 30.0;
-			var dt = Math.min((now - lastTime) / 1000, 1);
-			
-			// Limit to 30 fps ticks - otherwise the collision detection goes CRAZY
-			dt = Math.max(dt, 33/1000);
-			
-			lastTime = now;
-	
-			if ( local_player.active )
-			{
-				controls_update(dt, local_player);
-			}
-			
-			update_entities(dt);
-			
-			// update the gun animation
-			if ( gun_animating )
-			{
-				gun_frameTime += dt;
-				gun_currentFrame = Math.floor(gun_frameTime * gun_fps);
-				if ( gun_currentFrame >= gun_frames )
-				{
-					gun_animating = false;
-					gun_currentFrame = 0;
-				}
-			}
+		    var now = new Date().getTime();
+		    var delta = (now - lastTime) + leftOverTime;
+		    var framesToUpdate = Math.floor(delta / desired_tickrate);
+
+		    for (var f = 0; f < framesToUpdate; ++f) 
+		    {
+		        var dt = fps * 0.001;
+
+		        if (local_player.active) 
+		        {
+		            controls_update(dt, local_player);
+		        }
+
+		        update_entities(dt);
+
+		        // update the gun animation
+		        if (gun_animating) 
+		        {
+		            gun_frameTime += dt;
+		            gun_currentFrame = Math.floor(gun_frameTime * gun_fps);
+		            
+		            if (gun_currentFrame >= gun_frames) 
+		            {
+		                gun_animating = false;
+		                gun_currentFrame = 0;
+		            }
+		        }
+
+		        frameCount++;
+		    }
 
             var canvas = document.getElementById('view');
 
@@ -690,10 +693,14 @@
 //			{
 //				status += ", Dist: " + result.dist + ", " + result.material;
 //			}
-				
+
+			status = "Delta: " + delta + ", Frames to update: " + framesToUpdate;
+
 			update_status(status);
-			frameCount++;
-		}
+
+			leftOverTime = delta - (framesToUpdate * desired_tickrate);
+			lastTime = now;
+        }
 		
 		function spawn_random_enemies(n)
 		{
